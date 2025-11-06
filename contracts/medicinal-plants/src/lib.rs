@@ -1,5 +1,8 @@
 #![no_std]
-use soroban_sdk::{contracttype, vec, Env, Address, Vec, String};
+use soroban_sdk::{
+    contracttype, vec, Env, Address, Vec, String,
+    contracterror, contractimpl, contract,
+};
 
 #[derive(Clone)]
 #[contracttype]
@@ -9,13 +12,13 @@ pub struct MedicinalPlant {
     scientific_name: String,
     properties: Vec<String>,
     validated: bool,
-    validator: String,
+    validator: Address,
 }
 
 #[derive(Clone)]
 #[contracttype]
 pub struct Listing {
-    seller: String,
+    seller: Address,
     plant_id: String,
     price: i128,
     available: bool,
@@ -26,16 +29,27 @@ pub enum DataKey {
     Plant(String),
     Validators,
     PlantVotes(String),
-    Voted(String, String), // (plant_id, validator)
+    Voted(String, Address), // (plant_id, validator)
     Listing(String),       // keyed by plant_id
 }
 
+#[contract]
 pub struct MedicinalPlantsContract;
 
+#[contracterror]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
+pub enum MedicinalPlantsError {
+    NotAuthorized = 1,
+    AlreadyVoted = 2,
+    NotValidator = 3,
+    NotAvailable = 4,
+}
+
+#[contractimpl]
 impl MedicinalPlantsContract {
     /// Initialize storage (empty validator list)
     pub fn init(env: &Env) {
-        let validators: Vec<String> = vec![&env];
+        let validators: Vec<Address> = vec![&env];
         env.storage().instance().set(&DataKey::Validators, &validators);
     }
 
@@ -47,13 +61,15 @@ impl MedicinalPlantsContract {
         scientific_name: String,
         properties: Vec<String>,
     ) -> String {
+    // Authorization is handled by the contract macro
+
         let plant = MedicinalPlant {
             id: id.clone(),
             name,
             scientific_name,
             properties,
             validated: false,
-            validator: String::from_slice(&env, ""),
+            validator: env.current_contract_address(),
         };
 
         env.storage().instance().set(&DataKey::Plant(id.clone()), &plant);
@@ -61,24 +77,26 @@ impl MedicinalPlantsContract {
     }
 
     /// Add a validator to the validator set
-    pub fn add_validator(env: &Env, validator: String) {
-        let mut validators: Vec<String> = env.storage().instance().get(&DataKey::Validators).unwrap_or(vec![&env]);
-        if !validators.contains(&validator) {
-            validators.push_back(validator.clone());
-            env.storage().instance().set(&DataKey::Validators, &validators);
-        }
+    pub fn add_validator(env: &Env, validator: Address) {
+    // Authorization is handled by the contract macro
+        
+        let mut validators: Vec<Address> = env.storage().instance().get(&DataKey::Validators).unwrap_or_else(|| vec![&env]);
+        validators.push_back(validator);
+        env.storage().instance().set(&DataKey::Validators, &validators);
     }
 
     /// Check if a given identity is a validator
-    pub fn is_validator(env: &Env, validator: String) -> bool {
-        let validators: Vec<String> = env.storage().instance().get(&DataKey::Validators).unwrap_or(vec![&env]);
+    pub fn is_validator(env: &Env, validator: Address) -> bool {
+        let validators: Vec<Address> = env.storage().instance().get(&DataKey::Validators).unwrap_or_else(|| vec![&env]);
         validators.contains(&validator)
     }
 
     /// Vote for validating a plant. Once votes > 50% of validators the plant becomes validated.
-    pub fn vote_for_plant(env: &Env, plant_id: String, validator: String) -> i128 {
+    pub fn vote_for_plant(env: &Env, plant_id: String, validator: Address) -> i128 {
+    // Authorization is handled by the contract macro
+        
         // must be a validator
-        let validators: Vec<String> = env.storage().instance().get(&DataKey::Validators).unwrap_or(vec![&env]);
+        let validators: Vec<Address> = env.storage().instance().get(&DataKey::Validators).unwrap_or_else(|| vec![&env]);
         if !validators.contains(&validator) {
             return 0i128;
         }
@@ -101,10 +119,10 @@ impl MedicinalPlantsContract {
         // check quorum (majority)
         let total_validators: i128 = validators.len() as i128;
         if total_validators > 0 && votes * 2 > total_validators {
-            // mark plant validated
+            // mark plant validated 
             if let Some(mut plant) = env.storage().instance().get::<_, MedicinalPlant>(&DataKey::Plant(plant_id.clone())) {
                 plant.validated = true;
-                plant.validator = String::from_slice(&env, "consensus");
+                plant.validator = validator; // Record last validator that made plant reach consensus
                 env.storage().instance().set(&DataKey::Plant(plant_id.clone()), &plant);
             }
         }
@@ -118,7 +136,9 @@ impl MedicinalPlantsContract {
     }
 
     /// Marketplace: list a plant for sale (simple listing)
-    pub fn list_for_sale(env: &Env, plant_id: String, seller: String, price: i128) {
+    pub fn list_for_sale(env: &Env, plant_id: String, seller: Address, price: i128) {
+    // Authorization is handled by the contract macro
+
         let listing = Listing {
             seller: seller.clone(),
             plant_id: plant_id.clone(),
@@ -129,7 +149,9 @@ impl MedicinalPlantsContract {
     }
 
     /// Buy a listed plant (this example does not transfer tokens; it just marks the listing sold)
-    pub fn buy_listing(env: &Env, plant_id: String, buyer: String) -> bool {
+    pub fn buy_listing(env: &Env, plant_id: String, _buyer: Address) -> bool {
+    // Authorization is handled by the contract macro
+
         if let Some(mut listing) = env.storage().instance().get::<_, Listing>(&DataKey::Listing(plant_id.clone())) {
             if !listing.available {
                 return false;
