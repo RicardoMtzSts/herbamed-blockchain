@@ -18,3 +18,5 @@ node_modules/
 
 # Environment
 .env
+target/
+Cargo.lock
