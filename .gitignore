@@ -1,0 +1,20 @@
+# Rust
+/target/
+**/target/
+Cargo.lock
+
+# Soroban build artifacts
+/contracts/*/target/
+
+# Node
+node_modules/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+
+# Environment
+.env

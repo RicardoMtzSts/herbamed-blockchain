@@ -1,1 +1,0 @@
-/home/ricardo1/herbamed-blockchain/contracts/medicinal-plants/target/debug/libmedicinal_plants.so: /home/ricardo1/herbamed-blockchain/contracts/medicinal-plants/src/lib.rs /home/ricardo1/herbamed-blockchain/contracts/medicinal-plants/src/test.rs
