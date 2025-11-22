@@ -217,9 +217,32 @@ async function submitTxFallback(operation) {
   try {
     const publicKey = walletPublicKey || (keypair ? keypair.publicKey() : null)
     if (!publicKey) throw new Error('No se encontró publicKey para construir la transacción')
-    // Solicitar al builder service un XDR sin firmar
-    const builderUrl = `${TX_BUILDER_URL.replace(/\/$/, '')}/build_tx`
-    const builderResp = await fetch(builderUrl, {
+    // Preferir /build_invoke para intentar crear un invokeHostFunction XDR; caer a /build_tx si no está soportado
+    let unsignedXDR = null
+    try {
+      const builderInvokeUrl = `${TX_BUILDER_URL.replace(/\/$/, '')}/build_invoke`
+      const invokeResp = await fetch(builderInvokeUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ contractId: operation.contractId || CONTRACT_ADDRESS, method: operation.method, args: operation.args || [], publicKey, network: NETWORK })
+      })
+      if (invokeResp.ok) {
+        const invokeJson = await invokeResp.json()
+        unsignedXDR = invokeJson.xdr
+      } else if (invokeResp.status === 501) {
+        // builder no soporta invokeHostFunction, seguiremos al fallback
+        console.warn('Builder does not support invokeHostFunction, falling back to /build_tx')
+      } else {
+        const body = await invokeResp.text().catch(() => '')
+        console.warn('build_invoke failed:', invokeResp.status, body)
+      }
+    } catch (e) {
+      console.warn('build_invoke request error, will try /build_tx fallback:', e.message || e)
+    }
+
+    if (!unsignedXDR) {
+      const builderUrl = `${TX_BUILDER_URL.replace(/\/$/, '')}/build_tx`
+      const builderResp = await fetch(builderUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ contractId: operation.contractId || CONTRACT_ADDRESS, method: operation.method, args: operation.args || [], publicKey, network: NETWORK })
@@ -229,7 +252,7 @@ async function submitTxFallback(operation) {
       throw new Error(`Tx builder failed: ${builderResp.status} ${builderResp.statusText} ${body || ''}`)
     }
     const builderJson = await builderResp.json()
-    const unsignedXDR = builderJson.xdr
+      unsignedXDR = builderJson.xdr
 
     // Firmar con Freighter o con clave local
     let signedXDR = null
