@@ -1,7 +1,7 @@
 # Estado actual de Herbamed DApp (resumen de desarrollo)
 
 Fecha: 2025-11-22
-Autor: Resumen automático generado por el asistente
+Autor: Resumen 
 
 ## Resumen general
 Esta DApp (Herbamed) es una aplicación que combina un contrato inteligente Soroban (Rust) con un frontend en Vue 3 para registrar plantas, votar por ellas y manejarlas en un pequeño marketplace. El objetivo del trabajo realizado hasta ahora ha sido: añadir lógica inicial en el contrato, integrar un frontend capaz de crear/importar cuentas, firmar transacciones con Freighter o claves locales y proporcionar un helper backend para construir transacciones (XDR) durante desarrollo cuando la SDK de Soroban en el navegador no ofrece la funcionalidad completa.
