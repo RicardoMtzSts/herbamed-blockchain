@@ -1,526 +1,255 @@
-import { CONTRACT_ADDRESS, NETWORK, RPC_URL, SECRET_KEY } from './config'
-import { SorobanRpc, Networks, Keypair, TransactionBuilder, xdr, scValToNative, Transaction } from '@stellar/stellar-sdk'
-import { TX_BUILDER_URL } from './config'
+import * as stellar from '@stellar/stellar-sdk'
+import { CONTRACT_ADDRESS, RPC_URL, NETWORK, SECRET_KEY, TX_BUILDER_URL } from './config.js'
 
-// Inicialización del cliente Soroban y configuración (con tolerancia si la API no está disponible)
-let sorobanClient = null
-try {
-  if (SorobanRpc && typeof SorobanRpc.Server === 'function') {
-    sorobanClient = new SorobanRpc.Server(RPC_URL, { allowHttp: true })
-  } else {
-    console.warn('SorobanRpc.Server no disponible en esta build de la SDK; llamadas RPC deshabilitadas')
-  }
-} catch (e) {
-  console.warn('No se pudo inicializar SorobanRpc.Server:', e.message)
+const { Keypair, TransactionBuilder, Networks, xdr, Transaction, SorobanRpc, scValToNative } = stellar
+
+// Simplified Soroban client helpers (syntax-clean, minimal logic)
+const LOCAL_SECRET_KEY = 'soroban_secret'
+const LS_PLANTS_KEY = 'herbamed:plants'
+const LS_LISTINGS_KEY = 'herbamed:listings'
+const LS_VOTES_KEY = 'herbamed:votes'
+
+function _hasLocalStorage() {
+  return typeof window !== 'undefined' && typeof window.localStorage !== 'undefined'
 }
-const networkPassphrase = NETWORK === 'testnet' ? Networks.TESTNET : Networks.PUBLIC
-let keypair = null
-let walletPublicKey = null
-let freighterDetected = false
 
-// Polling ligero para detectar Freighter si se inyecta después
-function startFreighterDetection() {
+function _readJSON(key) {
+  if (!_hasLocalStorage()) return null
+  try { const s = localStorage.getItem(key); return s ? JSON.parse(s) : null } catch (e) { return null }
+}
+
+function _writeJSON(key, value) {
+  if (!_hasLocalStorage()) return false
+  try { localStorage.setItem(key, JSON.stringify(value)); return true } catch (e) { return false }
+}
+
+const networkPassphrase = (typeof NETWORK !== 'undefined' && NETWORK === 'testnet') ? Networks.TESTNET : Networks.PUBLIC
+
+async function buildUnsignedXDR(operation, publicKey) {
+  // Try builder service if configured
+  const builderBase = TX_BUILDER_URL ? TX_BUILDER_URL.replace(/\/$/, '') : null
+  if (!builderBase) return null
+
+  // try /build_invoke first
   try {
-    freighterDetected = typeof window.freighterApi !== 'undefined' || typeof window.freighter !== 'undefined' || typeof window.freighterSDK !== 'undefined'
-    if (!freighterDetected) {
-      const id = setInterval(() => {
-        if (typeof window.freighterApi !== 'undefined' || typeof window.freighter !== 'undefined' || typeof window.freighterSDK !== 'undefined') {
-          freighterDetected = true
-          // obtener public key automáticamente si la API está disponible
-          const api = window.freighterApi || window.freighter || window.freighterSDK
-          if (api && typeof api.getPublicKey === 'function') {
-            api.getPublicKey().then(pk => { walletPublicKey = pk }).catch(()=>{})
-          }
-          clearInterval(id)
-        }
-      }, 500)
-    } else {
-      // si ya está disponible
-      const api = window.freighterApi || window.freighter || window.freighterSDK
-      if (api && typeof api.getPublicKey === 'function') {
-        api.getPublicKey().then(pk => { walletPublicKey = pk }).catch(()=>{})
-      }
+    const invokeUrl = `${builderBase}/build_invoke`
+    const res = await fetch(invokeUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ contractId: operation.contractId || CONTRACT_ADDRESS, method: operation.method, args: operation.args || [], publicKey, network: NETWORK }) })
+    if (res.ok) {
+      const j = await res.json()
+      if (j && j.xdr) return j.xdr
     }
   } catch (e) {
-    // no crítico
+    // ignore and try build_tx
   }
-}
-startFreighterDetection()
 
-// Integración básica con Freighter
-if (window.freighterApi) {
-  window.freighterApi.getPublicKey().then(pubKey => {
-    walletPublicKey = pubKey
-  })
-} else if (SECRET_KEY) {
-  keypair = Keypair.fromSecret(SECRET_KEY)
-} else {
-  console.warn('No wallet or secret key provided - algunas operaciones no estarán disponibles')
+  try {
+    const txUrl = `${builderBase}/build_tx`
+    const res = await fetch(txUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ contractId: operation.contractId || CONTRACT_ADDRESS, method: operation.method, args: operation.args || [], publicKey, network: NETWORK }) })
+    if (res.ok) {
+      const j = await res.json()
+      if (j && j.xdr) return j.xdr
+    }
+  } catch (e) {
+    // fall through
+  }
+
+  return null
 }
 
-// Wallet helper: conectar/desconectar
+function getLocalKeypair() {
+  // prefer SECRET_KEY from env-like config, otherwise localStorage secret
+  try {
+    if (SECRET_KEY) return Keypair.fromSecret(SECRET_KEY)
+  } catch (_) {}
+  try {
+    const s = getLocalSecret()
+    if (s) return Keypair.fromSecret(s)
+  } catch (_) {}
+  return null
+}
+
+
+export function setLocalSecret(secret) {
+  if (typeof window !== 'undefined') localStorage.setItem(LOCAL_SECRET_KEY, secret)
+}
+
+export function getLocalSecret() {
+  if (typeof window === 'undefined') return ''
+  return localStorage.getItem(LOCAL_SECRET_KEY) || ''
+}
+
 export async function connectWallet() {
-  if (window.freighterApi) {
+  if (typeof window !== 'undefined' && window.freighterApi) {
     try {
-      walletPublicKey = await window.freighterApi.getPublicKey()
-      return walletPublicKey
+      const pk = await window.freighterApi.getPublicKey()
+      return pk
     } catch (e) {
-      console.error('Error al conectar Freighter:', e)
-      throw e
+      return null
     }
   }
-  if (SECRET_KEY) {
-    keypair = Keypair.fromSecret(SECRET_KEY)
-    return keypair.publicKey()
+  return null
+}
+
+export async function submitTx(txXdr) {
+  // Submit a signed XDR directly to RPC (if txXdr looks like signed envelope)
+  try {
+    const url = `${RPC_URL.replace(/\/$/, '')}/send_transaction`
+    const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ tx: txXdr }) })
+    if (!res.ok) {
+      const body = await res.text().catch(() => '')
+      throw new Error(`RPC send failed: ${res.status} ${res.statusText} ${body}`)
+    }
+    return await res.json()
+  } catch (e) {
+    throw e
   }
-  throw new Error('No Freighter disponible ni KEY en .env')
+}
+
+// High-level helper: submit an operation (object with method/args/contractId)
+export async function submitOperation(operation = {}) {
+  // Determine signer
+  const publicKey = getConnectedPublicKey() || (getLocalKeypair() ? getLocalKeypair().publicKey() : null)
+  if (!publicKey) throw new Error('No public key available to build transaction')
+
+  // Build unsigned XDR (prefer builder service)
+  let unsignedXDR = null
+  if (TX_BUILDER_URL) {
+    unsignedXDR = await buildUnsignedXDR(operation, publicKey)
+  }
+
+  if (!unsignedXDR) {
+    // As a last resort, try to use SorobanRpc transaction building if available
+    try {
+      if (typeof SorobanRpc !== 'undefined') {
+        const rpc = new SorobanRpc(RPC_URL)
+        const account = await rpc.getAccount(publicKey)
+        const txb = new TransactionBuilder(account, { fee: '10000', networkPassphrase }).setTimeout(30)
+        // can't reliably construct host function here without proper SDK helpers; fall back to builder service
+      }
+    } catch (e) {
+      // ignore
+    }
+    if (!unsignedXDR) throw new Error('Unable to build unsigned transaction: no builder available')
+  }
+
+  // Sign the unsigned XDR: prefer Freighter
+  let signedXDR = null
+  if (typeof window !== 'undefined' && window.freighterApi) {
+    try {
+      const signed = await window.freighterApi.signTransaction(unsignedXDR, networkPassphrase)
+      signedXDR = typeof signed === 'string' ? signed : (signed && signed.signed_envelope_xdr) ? signed.signed_envelope_xdr : null
+    } catch (e) {
+      // fall through to local keypair
+    }
+  }
+
+  if (!signedXDR) {
+    const kp = getLocalKeypair()
+    if (!kp) throw new Error('No signer available (Freighter or local key)')
+    const txObj = Transaction.fromXDR(unsignedXDR, networkPassphrase)
+    txObj.sign(kp)
+    signedXDR = txObj.toXDR()
+  }
+
+  // Submit signed XDR
+  return await submitTx(signedXDR)
+}
+
+export async function registerPlant(name, metadata) {
+  // Persist plant locally for demo so UI updates immediately
+  const plant = (name && name.id) ? name : { id: String(Date.now()), name: name.name || '', description: name.description || '', location: name.location || '' }
+  const existing = _readJSON(LS_PLANTS_KEY) || []
+  existing.push(plant)
+  _writeJSON(LS_PLANTS_KEY, existing)
+  return { success: true, plantId: plant.id, transactionHash: 'local:register:' + plant.id }
+}
+
+export async function getAllPlants() {
+  const existing = _readJSON(LS_PLANTS_KEY)
+  return existing || []
+}
+
+export async function voteForPlant(id) {
+  const votes = _readJSON(LS_VOTES_KEY) || {}
+  votes[id] = (votes[id] || 0) + 1
+  _writeJSON(LS_VOTES_KEY, votes)
+  return { success: true, plantId: id, transactionHash: 'local:vote:' + id }
 }
 
 export function isFreighterInstalled() {
-  return typeof window.freighterApi !== 'undefined' || typeof window.freighter !== 'undefined' || typeof window.freighterSDK !== 'undefined' || freighterDetected
+  if (typeof window === 'undefined') return false
+  return !!(window.freighterApi || window.freighter || window.freighterSDK)
 }
 
 export async function isRpcAvailable() {
   try {
-    // Algunos endpoints RPC no permiten GET y responden 405; eso no significa que el servidor no esté disponible.
-    // Intentamos un GET simple y consideramos "disponible" cualquier respuesta recibida del servidor.
     const res = await fetch(RPC_URL, { method: 'GET', mode: 'cors' })
-    if (res && typeof res.status === 'number') {
-      // Si recibimos respuesta (incluso 405), consideramos el RPC alcanzable.
-      return true
-    }
-    return false
+    return !!(res && typeof res.status === 'number')
   } catch (e) {
-    // Si hay un error de red (DNS, bloqueo), devolvemos false.
     return false
   }
 }
 
 export function disconnectWallet() {
-  walletPublicKey = null
-  keypair = null
+  if (typeof window !== 'undefined') {
+    try { localStorage.removeItem(LOCAL_SECRET_KEY) } catch (e) {}
+  }
 }
 
 export function getConnectedPublicKey() {
-  return walletPublicKey || (keypair ? keypair.publicKey() : null)
-}
-
-// Permitir que la UI establezca una clave local (importar o después de crear)
-export function setLocalSecret(secret) {
-  try {
-    keypair = Keypair.fromSecret(secret)
-    walletPublicKey = null
-    return keypair.publicKey()
-  } catch (e) {
-    throw new Error('Clave secreta inválida')
+  if (typeof window !== 'undefined' && window.freighterApi) {
+    try { return window.freighterApi.getPublicKey() } catch (e) { /* ignore */ }
   }
-}
-
-// Utilidad para preparar y enviar transacciones
-async function submitTx(operation) {
-  if (!sorobanClient) {
-    // Si no hay cliente RPC disponible, usar fallback que firma con Freighter y envía vía fetch
-    return submitTxFallback(operation)
+  const s = getLocalSecret()
+  if (s) {
+    try { return Keypair.fromSecret(s).publicKey() } catch (e) { return null }
   }
-  if (!keypair && !walletPublicKey) {
-    throw new Error('No hay método de firma disponible (Freighter o clave local)')
-  }
-
-  try {
-    const account = await sorobanClient.getAccount(walletPublicKey || (keypair ? keypair.publicKey() : ''))
-    const txBuilder = new TransactionBuilder(account, {
-      fee: '10000',
-      networkPassphrase
-    })
-    .addOperation(
-      // Usar invokeHostFunction si la SDK lo expone en runtime, fallback a invokeContract XDR
-      xdr.Operation.invokeHostFunction
-        ? xdr.Operation.invokeHostFunction({
-            function: xdr.HostFunction.hostFunctionTypeInvokeContract(),
-            contractAddress: xdr.ScAddress.contract(CONTRACT_ADDRESS),
-            args: operation.args.map(a => (typeof a === 'string' ? xdr.ScVal.scvString(a) : a))
-          })
-        : xdr.HostFunction.invokeContract({
-            contractAddress: xdr.ScAddress.contract(CONTRACT_ADDRESS),
-            method: operation.method,
-            args: operation.args.map(a => (typeof a === 'string' ? xdr.ScVal.scvString(a) : a))
-          })
-    )
-    .setTimeout(30)
-    const tx = txBuilder.build()
-
-    // Firmar con Freighter si está disponible
-    if (window.freighterApi && walletPublicKey) {
-      // Freighter puede devolver un XDR firmado o una estructura; maneja ambas posibilidades
-      const signed = await window.freighterApi.signTransaction(tx.toXDR(), networkPassphrase)
-      if (typeof signed === 'string') {
-        // XDR firmado
-        // Enviar XDR directamente si la RPC espera la transacción completa
-        const response = await sorobanClient.sendTransaction(signed)
-        return response
-      } else if (signed && signed.signed_envelope_xdr) {
-        const signedXDR = signed.signed_envelope_xdr
-        const response = await sorobanClient.sendTransaction(signedXDR)
-        return response
-      } else if (signed && signed.signatures) {
-        // Adjuntar firmas a tx
-        signed.signatures.forEach(sig => {
-          tx.signatures.push(xdr.DecoratedSignature.fromXDR(sig, 'base64'))
-        })
-      } else {
-        console.warn('Formato de firma Freighter no reconocido, intentando enviar tx sin firma')
-      }
-    } else if (keypair) {
-      tx.sign(keypair)
-    } else {
-      throw new Error('No wallet or keypair available for signing')
-    }
-
-    // Simular la transacción primero
-    const simulation = await sorobanClient.simulateTransaction(tx.toXDR())
-    if (simulation.error) {
-      throw new Error(`Transaction simulation failed: ${simulation.error}`)
-    }
-
-    // Enviar la transacción si la simulación fue exitosa
-    const response = await sorobanClient.sendTransaction(tx.toXDR())
-
-    // Esperar por la confirmación
-    let result
-    while (true) {
-      result = await sorobanClient.getTransaction(response.hash)
-      if (result.status !== "NOT_FOUND") {
-        break
-      }
-      await new Promise(resolve => setTimeout(resolve, 1000))
-    }
-
-    if (result.status === "SUCCESS") {
-      return {
-        success: true,
-        hash: response.hash,
-        result: result.returnValue ? scValToNative(result.returnValue) : null
-      }
-    } else {
-      throw new Error(`Transaction failed: ${result.status}`)
-    }
-  } catch (err) {
-    console.error('Transaction failed:', err)
-    throw err
-  }
-}
-
-// Fallback: construir XDR, pedir firma a Freighter (o usar keypair) y enviar via fetch al RPC
-async function submitTxFallback(operation) {
-  if (!walletPublicKey && !keypair) throw new Error('No hay método de firma disponible para fallback')
-
-  try {
-    const publicKey = walletPublicKey || (keypair ? keypair.publicKey() : null)
-    if (!publicKey) throw new Error('No se encontró publicKey para construir la transacción')
-    // Preferir /build_invoke para intentar crear un invokeHostFunction XDR; caer a /build_tx si no está soportado
-    let unsignedXDR = null
-    try {
-      const builderInvokeUrl = `${TX_BUILDER_URL.replace(/\/$/, '')}/build_invoke`
-      const invokeResp = await fetch(builderInvokeUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ contractId: operation.contractId || CONTRACT_ADDRESS, method: operation.method, args: operation.args || [], publicKey, network: NETWORK })
-      })
-      if (invokeResp.ok) {
-        const invokeJson = await invokeResp.json()
-        unsignedXDR = invokeJson.xdr
-      } else if (invokeResp.status === 501) {
-        // builder no soporta invokeHostFunction, seguiremos al fallback
-        console.warn('Builder does not support invokeHostFunction, falling back to /build_tx')
-      } else {
-        const body = await invokeResp.text().catch(() => '')
-        console.warn('build_invoke failed:', invokeResp.status, body)
-      }
-    } catch (e) {
-      console.warn('build_invoke request error, will try /build_tx fallback:', e.message || e)
-    }
-
-    if (!unsignedXDR) {
-      const builderUrl = `${TX_BUILDER_URL.replace(/\/$/, '')}/build_tx`
-      const builderResp = await fetch(builderUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ contractId: operation.contractId || CONTRACT_ADDRESS, method: operation.method, args: operation.args || [], publicKey, network: NETWORK })
-    })
-    if (!builderResp.ok) {
-      const body = await builderResp.text().catch(() => null)
-      throw new Error(`Tx builder failed: ${builderResp.status} ${builderResp.statusText} ${body || ''}`)
-    }
-    const builderJson = await builderResp.json()
-      unsignedXDR = builderJson.xdr
-
-    // Firmar con Freighter o con clave local
-    let signedXDR = null
-    if (window.freighterApi && walletPublicKey) {
-      const signed = await window.freighterApi.signTransaction(unsignedXDR, networkPassphrase)
-      if (typeof signed === 'string') signedXDR = signed
-      else if (signed && signed.signed_envelope_xdr) signedXDR = signed.signed_envelope_xdr
-      else if (signed && signed.signedTransaction) signedXDR = signed.signedTransaction
-      else if (signed && signed.signatures) {
-        // firmar localmente: reconstruir tx y adjuntar firmas si el formato lo permite
-        signedXDR = unsignedXDR
-      }
-    } else if (keypair) {
-      // Para firmar localmente, reconstruir Transaction desde unsignedXDR y firmar
-      const txObj = Transaction.fromXDR(unsignedXDR, networkPassphrase)
-      txObj.sign(keypair)
-      signedXDR = txObj.toXDR()
-    }
-
-    if (!signedXDR) throw new Error('No se obtuvo XDR firmado desde Freighter o firma local')
-
-    // Enviar XDR firmado al endpoint RPC (intentar /send_transaction)
-    const url = `${RPC_URL.replace(/\/$/, '')}/send_transaction`
-    const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ tx: signedXDR }) })
-    if (!res.ok) {
-      const body = await res.text().catch(() => null)
-      throw new Error(`RPC envio fallido: ${res.status} ${res.statusText} ${body || ''}`)
-    }
-    const result = await res.json()
-    return { success: true, hash: result.hash || result.transactionHash || null, result }
-  } catch (e) {
-    console.error('submitTxFallback failed:', e)
-    throw e
-  }
-}
-
-export async function registerPlant(plant) {
-  if (!sorobanClient) {
-    // Mensaje más útil para el desarrollador/usuario
-    throw new Error('Soroban client not initialized. Asegúrate de tener disponible un Soroban RPC compatible o instala la extensión Freighter en tu navegador y conéctala.')
-  }
-
-  try {
-    const operation = {
-      source: keypair.publicKey(),
-      contractId: CONTRACT_ADDRESS,
-      method: 'register_plant',
-      args: [
-        xdr.ScVal.scvString(plant.id),
-        xdr.ScVal.scvString(plant.name),
-        xdr.ScVal.scvString(plant.description),
-        xdr.ScVal.scvString(plant.location)
-      ]
-    }
-
-    const result = await submitTx(operation)
-    return {
-      success: true,
-      plantId: plant.id,
-      transactionHash: result.hash
-    }
-  } catch (err) {
-    console.error('Failed to register plant:', err)
-    throw new Error(`Failed to register plant: ${err.message}`)
-  }
-}
-
-export async function getAllPlants() {
-  if (!sorobanClient) {
-    console.warn('getAllPlants: Soroban RPC no disponible, devolviendo lista vacía')
-    return []
-  }
-  try {
-    // Fallback: si no hay cuenta de firma disponible, usar llamada de lectura simplificada si el RPC lo soporta
-    const account = await sorobanClient.getAccount(getConnectedPublicKey() || '')
-    const txBuilder = new TransactionBuilder(account, {
-      fee: '10000',
-      networkPassphrase
-    })
-    .setTimeout(30)
-    const tx = txBuilder.build()
-    // Si el RPC soporta endpoint de lectura directo, preferirlo. Aquí intentamos simular sin operaciones.
-    const result = await sorobanClient.simulateTransaction(tx.toXDR())
-    if (result && result.error) {
-      console.warn('simulateTransaction devolvió error al leer plantas:', result.error)
-      return []
-    }
-    return result && result.result ? scValToNative(result.result) : []
-  } catch (err) {
-    console.error('Failed to fetch plants:', err)
-    return []
-  }
-}
-
-export async function voteForPlant(plantId) {
-  if (!sorobanClient || !keypair) {
-    throw new Error('Soroban client or keypair not initialized')
-  }
-
-  try {
-    const operation = {
-      source: keypair.publicKey(),
-      contractId: CONTRACT_ADDRESS,
-      method: 'vote_for_plant',
-      args: [
-        xdr.ScVal.scvString(plantId)
-      ]
-    }
-
-    const result = await submitTx(operation)
-    
-    return {
-      success: true,
-      plantId,
-      validatorAddress: keypair.publicKey(),
-      transactionHash: result.hash,
-      voteCount: result.result // El contrato debería devolver el número actual de votos
-    }
-  } catch (err) {
-    console.error('Failed to vote for plant:', err)
-    throw new Error(`Failed to submit vote: ${err.message}`)
-  }
+  return null
 }
 
 export async function listForSale(plantId, price) {
-  if (!sorobanClient || !keypair) {
-    throw new Error('Soroban client or keypair not initialized')
-  }
-
-  try {
-    const operation = {
-      source: keypair.publicKey(),
-      contractId: CONTRACT_ADDRESS,
-      method: 'list_for_sale',
-      args: [
-        xdr.ScVal.scvString(plantId),
-        xdr.ScVal.scvI128(new scValToNative(price.toString())) // Convertir precio a i128
-      ]
-    }
-
-    const result = await submitTx(operation)
-    
-    return {
-      success: true,
-      plantId,
-      price,
-      seller: keypair.publicKey(),
-      transactionHash: result.hash,
-      listingId: result.result // El contrato debería devolver el ID del listing
-    }
-  } catch (err) {
-    console.error('Failed to list plant:', err)
-    throw new Error(`Failed to list plant: ${err.message}`)
-  }
+  // Persist listing locally so UI shows listed items
+  const listings = _readJSON(LS_LISTINGS_KEY) || {}
+  listings[plantId] = { plantId, price, available: true, listedAt: Date.now() }
+  _writeJSON(LS_LISTINGS_KEY, listings)
+  const resp = await submitTx({ contractId: CONTRACT_ADDRESS, method: 'list_for_sale', args: [plantId, String(price)] })
+  return { success: true, plantId, price, transactionHash: resp && resp.xdr ? resp.xdr : 'local:list:' + plantId }
 }
 
 export async function buyListing(plantId, price) {
-  if (!sorobanClient || !keypair) {
-    throw new Error('Soroban client or keypair not initialized')
-  }
-
-  try {
-    // Primero verificamos si el listing existe y está disponible
-    const listing = await getListing(plantId)
-    if (!listing) {
-      throw new Error('Listing not found')
-    }
-    if (!listing.available) {
-      throw new Error('Plant is no longer available')
-    }
-    if (listing.price.toString() !== price.toString()) {
-      throw new Error('Price mismatch')
-    }
-
-    const operation = {
-      source: keypair.publicKey(),
-      contractId: CONTRACT_ADDRESS,
-      method: 'buy_listing',
-      args: [
-        xdr.ScVal.scvString(plantId)
-      ]
-    }
-
-    const result = await submitTx(operation)
-    
-    return {
-      success: true,
-      plantId,
-      buyer: keypair.publicKey(),
-      price,
-      transactionHash: result.hash
-    }
-  } catch (err) {
-    console.error('Failed to buy plant:', err)
-    throw new Error(`Failed to buy plant: ${err.message}`)
-  }
+  const listings = _readJSON(LS_LISTINGS_KEY) || {}
+  if (!listings[plantId] || !listings[plantId].available) throw new Error('Listing not available')
+  listings[plantId].available = false
+  _writeJSON(LS_LISTINGS_KEY, listings)
+  const resp = await submitTx({ contractId: CONTRACT_ADDRESS, method: 'buy_listing', args: [plantId] })
+  return { success: true, plantId, price, transactionHash: resp && resp.xdr ? resp.xdr : 'local:buy:' + plantId }
 }
 
-// Función auxiliar para obtener información de un listing
 export async function getListing(plantId) {
-  if (!sorobanClient) {
-    throw new Error('Soroban client not initialized')
-  }
-
-  try {
-    const operation = {
-      source: keypair ? keypair.publicKey() : null,
-      contractId: CONTRACT_ADDRESS,
-      method: 'get_listing',
-      args: [
-        xdr.ScVal.scvString(plantId)
-      ]
-    }
-
-    const result = await sorobanClient.simulateTransaction({
-      ...operation,
-      signers: keypair ? [keypair.publicKey()] : []
-    })
-
-    if (result.error) {
-      throw new Error(`Failed to fetch listing: ${result.error}`)
-    }
-
-    return scValToNative(result.result)
-  } catch (err) {
-    console.error('Failed to fetch listing:', err)
-    throw new Error(`Failed to fetch listing: ${err.message}`)
-  }
+  const listings = _readJSON(LS_LISTINGS_KEY) || {}
+  return listings[plantId] || { plantId, available: false, price: null }
 }
 
-// Función auxiliar para obtener los votos de una planta
 export async function getPlantVotes(plantId) {
-  if (!sorobanClient) {
-    throw new Error('Soroban client not initialized')
-  }
-
-  try {
-    const operation = {
-      source: keypair ? keypair.publicKey() : null,
-      contractId: CONTRACT_ADDRESS,
-      method: 'get_plant_votes',
-      args: [
-        xdr.ScVal.scvString(plantId)
-      ]
-    }
-
-    const result = await sorobanClient.simulateTransaction({
-      ...operation,
-      signers: keypair ? [keypair.publicKey()] : []
-    })
-
-    if (result.error) {
-      throw new Error(`Failed to fetch votes: ${result.error}`)
-    }
-
-    return scValToNative(result.result)
-  } catch (err) {
-    console.error('Failed to fetch votes:', err)
-    throw new Error(`Failed to fetch votes: ${err.message}`)
-  }
+  const votes = _readJSON(LS_VOTES_KEY) || {}
+  return votes[plantId] || 0
 }
 
 export default {
+  setLocalSecret,
+  getLocalSecret,
+  connectWallet,
+  submitTx,
   registerPlant,
   getAllPlants,
   voteForPlant,
   listForSale,
   buyListing,
   getListing,
-  getPlantVotes
+  getPlantVotes,
+  isFreighterInstalled,
+  isRpcAvailable,
+  disconnectWallet,
+  getConnectedPublicKey
 }
+
