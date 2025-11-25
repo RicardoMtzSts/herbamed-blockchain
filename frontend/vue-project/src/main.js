@@ -6,6 +6,7 @@ import store from './store'
 // Import styles
 import './assets/main.css'
 import 'bootstrap/dist/css/bootstrap.min.css'
+import './assets/theme.css'
 
 // Import Bootstrap JS
 import * as bootstrap from 'bootstrap'
