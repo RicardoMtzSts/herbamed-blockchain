@@ -119,21 +119,37 @@ export function getLocalSecret() {
 export async function connectWallet() {
   if (typeof window === 'undefined') return null
 
-  // Wait for Freighter to inject (max 3 seconds)
-  const waitForFreighter = async () => {
-    for (let i = 0; i < 30; i++) {
-      if (window.freighterApi) return window.freighterApi
-      await new Promise(resolve => setTimeout(resolve, 100))
-    }
-    return null
-  }
-
   try {
-    const api = window.freighterApi || await waitForFreighter()
-    if (!api) throw new Error('Freighter API not available')
+    // Modern Freighter requires explicit check first
+    // Try to detect if Freighter is installed
+    const hasFreighter = !!(window.freighterApi || window.stellar?.isConnected)
+    
+    if (!hasFreighter) {
+      // Wait a bit for injection
+      await new Promise(resolve => setTimeout(resolve, 500))
+      if (!window.freighterApi && !window.stellar?.isConnected) {
+        throw new Error('Freighter extension not detected. Please install from https://freighter.app')
+      }
+    }
 
+    // Use Freighter API
+    let api = window.freighterApi
+    
+    // If still no freighterApi, try stellar.isConnected pattern
+    if (!api && window.stellar?.isConnected) {
+      // Request access first
+      await window.stellar.isConnected()
+      api = window.freighterApi || window.stellar
+    }
+    
+    if (!api || !api.getPublicKey) {
+      throw new Error('Freighter API not available - try reloading the page')
+    }
+
+    // Request public key (this triggers permission popup in Freighter)
     const pk = await api.getPublicKey()
-    if (!pk) throw new Error('No public key returned')
+    if (!pk) throw new Error('No public key returned - did you reject the request?')
+    
     return pk
   } catch (e) {
     console.error('Freighter connection error:', e)
@@ -235,34 +251,28 @@ export async function voteForPlant(id) {
 
 export function isFreighterInstalled() {
   if (typeof window === 'undefined') return false
-  // Check for Freighter's injected API
-  // Modern Freighter injects window.freighterApi
-  return !!(window.freighterApi)
+  // Check for Freighter's injected API (multiple patterns for different versions)
+  return !!(
+    window.freighterApi ||
+    window.stellar?.isConnected ||
+    window.freighter
+  )
 }
 
 // Helper to wait for Freighter injection (called once on app mount)
 export function waitForFreighterInjection() {
   return new Promise((resolve) => {
-    if (window.freighterApi) {
+    if (isFreighterInstalled()) {
       resolve(true)
       return
     }
     
-    // Listen for Freighter injection event
-    const checkFreighter = () => {
-      if (window.freighterApi) {
-        resolve(true)
-        return true
-      }
-      return false
-    }
-    
-    // Poll for max 5 seconds
+    // Poll for max 3 seconds (reduced from 5)
     let attempts = 0
     const interval = setInterval(() => {
-      if (checkFreighter() || attempts++ > 50) {
+      if (isFreighterInstalled() || attempts++ > 30) {
         clearInterval(interval)
-        resolve(!!window.freighterApi)
+        resolve(isFreighterInstalled())
       }
     }, 100)
   })
