@@ -56,7 +56,10 @@
         </div>
 
         <div v-if="activeTab==='import'">
-          <p class="text-muted">Pega tu clave secreta para importarla (no se guardará a menos que elijas guardar).</p>
+          <div class="alert alert-success mb-3">
+            <strong>✅ Método Recomendado:</strong> Importa tu SECRET_KEY para firmar transacciones directamente sin depender de Freighter.
+          </div>
+          <p class="text-muted">Pega tu clave secreta (empieza con 'S'). Puedes guardarla cifrada o solo usarla en memoria.</p>
           <div class="mb-3">
             <label class="form-label">Clave secreta</label>
             <input v-model="importSecret" type="text" class="form-control" placeholder="S..." />
@@ -116,7 +119,7 @@ async function decryptSecret(payload, password) {
 export default {
   name: 'LoginAdvanced',
   setup() {
-    const activeTab = ref('login')
+    const activeTab = ref('import')
     const loginPassword = ref('')
     const createPassword = ref('')
     const createPasswordConfirm = ref('')
