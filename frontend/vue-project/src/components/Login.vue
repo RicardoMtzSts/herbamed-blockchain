@@ -103,6 +103,8 @@
 
 <script>
 import { ref, computed, onMounted } from 'vue'
+import { useStore } from 'vuex'
+import { useRouter } from 'vue-router'
 import { connectWallet, setLocalSecret, isFreighterInstalled, isRpcAvailable, waitForFreighterInjection } from '@/soroban/client'
 import { Keypair } from '@stellar/stellar-sdk'
 
@@ -138,6 +140,9 @@ async function decryptSecret(payload, password) {
 export default {
   name: 'LoginAdvanced',
   setup() {
+    const store = useStore()
+    const router = useRouter()
+    
     const activeTab = ref('import')
     const loginPassword = ref('')
     const createPassword = ref('')
@@ -283,14 +288,12 @@ export default {
         return
       }
       try {
-        const { useStore } = await import('vuex')
-        const s = useStore()
-        await s.dispatch('setMode', selectedMode.value)
+        await store.dispatch('setMode', selectedMode.value)
         modeStatus.value = { type: 'success', message: 'Modo establecido: ' + selectedMode.value }
-        // redirigir
-        const { useRouter } = await import('vue-router')
-        const r = useRouter()
-        r.push({ name: 'plants' })
+        // redirigir después de un breve delay para mostrar el mensaje
+        setTimeout(() => {
+          router.push({ name: 'plants' })
+        }, 500)
       } catch (e) {
         modeStatus.value = { type: 'error', message: 'Error guardando modo: ' + (e.message || e) }
       }
