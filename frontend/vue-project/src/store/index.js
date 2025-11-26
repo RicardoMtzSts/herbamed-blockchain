@@ -85,6 +85,5 @@ export default createStore({
       return state.plants.filter(plant => !plant.validated)
     },
     currentMode: (state) => state.mode
-    }
   }
 })
