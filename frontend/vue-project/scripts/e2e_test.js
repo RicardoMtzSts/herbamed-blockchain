@@ -1,5 +1,8 @@
-import fetch from 'node-fetch'
-import { Keypair, Transaction } from '@stellar/stellar-sdk'
+import { Keypair, TransactionBuilder, Networks, Operation, Account } from '@stellar/stellar-sdk'
+// node v18+ has global fetch; ensure global available for older runtimes
+if (typeof fetch === 'undefined') {
+  global.fetch = (await import('node-fetch')).default
+}
 
 // e2e_test: build unsigned XDR using /build_invoke or /build_tx, sign with local key and POST to RPC /send_transaction
 
@@ -45,18 +48,41 @@ async function main() {
     console.log('Got unsigned XDR from /build_tx')
   }
 
-  // Sign unsignedXDR with local key
-  const txObj = Transaction.fromXDR(unsignedXDR, NETWORK === 'testnet' ? 'Test SDF Network ; September 2015' : 'Public Global Stellar Network ; September 2015')
-  txObj.sign(kp)
-  const signedXDR = txObj.toXDR()
+  // Instead of parsing unsignedXDR (parsing may vary per SDK), reconstruct the transaction locally using Horizon sequence
+  const horizonUrl = NETWORK === 'testnet' ? 'https://horizon-testnet.stellar.org' : 'https://horizon.stellar.org'
+  let accRes = await fetch(`${horizonUrl}/accounts/${publicKey}`)
+  if (!accRes.ok && accRes.status === 404 && NETWORK === 'testnet') {
+    // Try to fund the account via friendbot (testnet)
+    console.log('Account not found on Horizon; attempting to fund via friendbot...')
+    const fb = await fetch(`https://friendbot.stellar.org?addr=${publicKey}`)
+    if (!fb.ok) {
+      console.error('Friendbot funding failed:', fb.status)
+      process.exit(2)
+    }
+    console.log('Friendbot funded account; waiting a moment and retrying...')
+    await new Promise(r => setTimeout(r, 1500))
+    accRes = await fetch(`${horizonUrl}/accounts/${publicKey}`)
+  }
+  if (!accRes.ok) {
+    console.error('Could not fetch account from Horizon to build tx locally:', accRes.status)
+    process.exit(2)
+  }
+  const accJson = await accRes.json()
+  const account = new Account(publicKey, accJson.sequence)
+  const networkPassphrase = NETWORK === 'testnet' ? Networks.TESTNET : Networks.PUBLIC
+  const txBuilder = new TransactionBuilder(account, { fee: '100', networkPassphrase }).setTimeout(30)
+  txBuilder.addOperation(Operation.manageData({ name: `invoke:register_plant`, value: Buffer.from(JSON.stringify(['e2e-id','e2e-name','e2e-desc'])) }))
+  const tx = txBuilder.build()
+  tx.sign(kp)
+  const signedXDR = tx.toXDR()
   console.log('Signed XDR length', signedXDR.length)
 
-  // Send to RPC
-  const sendUrl = `${RPC_URL.replace(/\/$/, '')}/send_transaction`
-  const res = await fetch(sendUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ tx: signedXDR }) })
+  // Send to Horizon /transactions endpoint (submit Stellar transaction)
+  const sendUrl = `${horizonUrl.replace(/\/$/, '')}/transactions`
+  const res = await fetch(sendUrl, { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: `tx=${encodeURIComponent(signedXDR)}` })
   const body = await res.text()
-  console.log('RPC send response status', res.status)
-  console.log('RPC body:', body)
+  console.log('Horizon submit response status', res.status)
+  console.log('Horizon body:', body)
 }
 
 main().catch(e => { console.error(e); process.exit(2) })

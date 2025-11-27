@@ -1,0 +1,446 @@
+/* HerbaMed - Custom Theme: Green/Cyan Medical Plants */
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&family=Playfair+Display:wght@700&display=swap');
+
+:root {
+  /* Primary Colors - Green & Cyan Palette */
+  --primary-green: #2d6a4f;
+  --primary-green-light: #40916c;
+  --primary-green-dark: #1b4332;
+  --secondary-cyan: #00b4d8;
+  --secondary-cyan-light: #48cae4;
+  --secondary-cyan-dark: #0096c7;
+  
+  /* Accent Colors */
+  --accent-mint: #95d5b2;
+  --accent-teal: #52b788;
+  --accent-seafoam: #74c69d;
+  
+  /* Neutral Colors */
+  --bg-main: #f1faee;
+  --bg-card: #ffffff;
+  --bg-secondary: #d8f3dc;
+  --text-primary: #1b4332;
+  --text-secondary: #2d6a4f;
+  --text-muted: #52b788;
+  
+  /* Shadows & Effects */
+  --shadow-sm: 0 2px 8px rgba(45, 106, 79, 0.1);
+  --shadow-md: 0 4px 16px rgba(45, 106, 79, 0.15);
+  --shadow-lg: 0 8px 32px rgba(45, 106, 79, 0.2);
+  
+  /* Typography */
+  --font-heading: 'Playfair Display', serif;
+  --font-body: 'Poppins', sans-serif;
+}
+
+/* Global Styles */
+* {
+  box-sizing: border-box;
+}
+
+body {
+  font-family: var(--font-body);
+  background: linear-gradient(135deg, rgba(241, 250, 238, 0.95) 0%, rgba(216, 243, 220, 0.95) 100%),
+              url('https://images.unsplash.com/photo-1512069772995-ec65ed45afd6?w=1920&q=80') center/cover fixed;
+  color: var(--text-primary);
+  min-height: 100vh;
+  position: relative;
+  overflow-x: hidden;
+}
+
+/* Background Pattern */
+body::before {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-image: 
+    url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><path d="M50 20 Q40 30 50 40 Q60 30 50 20 M50 45 L45 65 M50 45 L55 65 M45 65 Q50 70 55 65" fill="none" stroke="%2395d5b2" stroke-width="0.5" opacity="0.1"/></svg>');
+  background-size: 80px 80px;
+  opacity: 0.3;
+  pointer-events: none;
+  z-index: -1;
+}
+
+/* Navbar */
+.navbar {
+  background: linear-gradient(90deg, var(--primary-green) 0%, var(--primary-green-light) 100%) !important;
+  box-shadow: var(--shadow-md);
+  padding: 1rem 0;
+  backdrop-filter: blur(10px);
+}
+
+.navbar-brand {
+  font-family: var(--font-heading);
+  font-size: 1.8rem;
+  font-weight: 700;
+  color: white !important;
+  text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+  letter-spacing: 1px;
+}
+
+.navbar-brand::before {
+  content: '🌿 ';
+  font-size: 1.5rem;
+}
+
+.nav-link {
+  color: rgba(255, 255, 255, 0.9) !important;
+  font-weight: 500;
+  padding: 0.5rem 1.2rem !important;
+  border-radius: 8px;
+  transition: all 0.3s ease;
+  margin: 0 0.2rem;
+}
+
+.nav-link:hover {
+  background-color: rgba(255, 255, 255, 0.15);
+  color: white !important;
+  transform: translateY(-2px);
+}
+
+.nav-link.router-link-active {
+  background-color: var(--secondary-cyan);
+  color: white !important;
+  box-shadow: 0 4px 12px rgba(0, 180, 216, 0.3);
+}
+
+/* Cards */
+.card {
+  background: var(--bg-card);
+  border: none;
+  border-radius: 16px;
+  box-shadow: var(--shadow-md);
+  overflow: hidden;
+  transition: all 0.3s ease;
+  margin-bottom: 1.5rem;
+}
+
+.card:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--shadow-lg);
+}
+
+.card-title {
+  font-family: var(--font-heading);
+  color: var(--primary-green-dark);
+  font-size: 1.8rem;
+  margin-bottom: 1rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 3px solid var(--accent-mint);
+}
+
+.card-body {
+  padding: 2rem;
+}
+
+/* Buttons */
+.btn {
+  font-family: var(--font-body);
+  font-weight: 600;
+  border-radius: 10px;
+  padding: 0.6rem 1.5rem;
+  transition: all 0.3s ease;
+  border: none;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-size: 0.9rem;
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, var(--primary-green) 0%, var(--primary-green-light) 100%);
+  color: white;
+  box-shadow: 0 4px 12px rgba(45, 106, 79, 0.3);
+}
+
+.btn-primary:hover {
+  background: linear-gradient(135deg, var(--primary-green-dark) 0%, var(--primary-green) 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(45, 106, 79, 0.4);
+}
+
+.btn-success {
+  background: linear-gradient(135deg, var(--accent-teal) 0%, var(--accent-seafoam) 100%);
+  color: white;
+  box-shadow: 0 4px 12px rgba(82, 183, 136, 0.3);
+}
+
+.btn-success:hover {
+  background: linear-gradient(135deg, var(--primary-green-light) 0%, var(--accent-teal) 100%);
+  transform: translateY(-2px);
+}
+
+.btn-outline-primary {
+  border: 2px solid var(--primary-green);
+  color: var(--primary-green);
+  background: transparent;
+}
+
+.btn-outline-primary:hover {
+  background: var(--primary-green);
+  color: white;
+  border-color: var(--primary-green);
+}
+
+.btn-outline-success {
+  border: 2px solid var(--secondary-cyan);
+  color: var(--secondary-cyan);
+  background: transparent;
+}
+
+.btn-outline-success:hover {
+  background: var(--secondary-cyan);
+  color: white;
+  border-color: var(--secondary-cyan);
+}
+
+.btn-outline-secondary {
+  border: 2px solid var(--text-muted);
+  color: var(--text-muted);
+}
+
+.btn-outline-secondary:hover {
+  background: var(--text-muted);
+  color: white;
+}
+
+.btn-sm {
+  padding: 0.4rem 1rem;
+  font-size: 0.85rem;
+}
+
+/* Forms */
+.form-control, .form-select {
+  border: 2px solid var(--accent-mint);
+  border-radius: 10px;
+  padding: 0.7rem 1rem;
+  font-family: var(--font-body);
+  transition: all 0.3s ease;
+  background: var(--bg-main);
+}
+
+.form-control:focus, .form-select:focus {
+  border-color: var(--secondary-cyan);
+  box-shadow: 0 0 0 0.2rem rgba(0, 180, 216, 0.25);
+  background: white;
+}
+
+.form-label {
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-bottom: 0.5rem;
+  font-size: 0.95rem;
+}
+
+/* Alerts */
+.alert {
+  border-radius: 12px;
+  border: none;
+  padding: 1rem 1.5rem;
+  font-weight: 500;
+}
+
+.alert-success {
+  background: linear-gradient(135deg, var(--accent-mint) 0%, var(--accent-seafoam) 100%);
+  color: var(--primary-green-dark);
+}
+
+.alert-danger {
+  background: linear-gradient(135deg, #ffccd5 0%, #ffb3c1 100%);
+  color: #842029;
+}
+
+.alert-info {
+  background: linear-gradient(135deg, var(--secondary-cyan-light) 0%, var(--secondary-cyan) 100%);
+  color: white;
+}
+
+.alert-warning {
+  background: linear-gradient(135deg, #fff3cd 0%, #ffe69c 100%);
+  color: #664d03;
+}
+
+/* Badges */
+.badge {
+  border-radius: 8px;
+  padding: 0.5rem 1rem;
+  font-weight: 600;
+  font-size: 0.85rem;
+}
+
+.badge.bg-success {
+  background: var(--accent-teal) !important;
+}
+
+.badge.bg-primary {
+  background: var(--secondary-cyan) !important;
+}
+
+.badge.bg-secondary {
+  background: var(--text-muted) !important;
+}
+
+/* Tabs */
+.nav-tabs {
+  border-bottom: 3px solid var(--accent-mint);
+}
+
+.nav-tabs .nav-link {
+  color: var(--text-secondary) !important;
+  border: none;
+  border-bottom: 3px solid transparent;
+  background: transparent;
+  font-weight: 600;
+  padding: 1rem 1.5rem;
+}
+
+.nav-tabs .nav-link:hover {
+  border-bottom-color: var(--accent-seafoam);
+  background: rgba(149, 213, 178, 0.1);
+}
+
+.nav-tabs .nav-link.active {
+  color: var(--primary-green-dark) !important;
+  border-bottom-color: var(--secondary-cyan);
+  background: rgba(0, 180, 216, 0.05);
+}
+
+/* Lists */
+.list-group-item {
+  border: 2px solid var(--accent-mint);
+  margin-bottom: 0.8rem;
+  border-radius: 12px;
+  background: var(--bg-card);
+  transition: all 0.3s ease;
+}
+
+.list-group-item:hover {
+  background: var(--bg-secondary);
+  border-color: var(--secondary-cyan);
+  transform: translateX(8px);
+}
+
+/* Spinner/Loading */
+.spinner-border {
+  border-color: var(--accent-mint);
+  border-right-color: transparent;
+}
+
+/* Custom Plant Card */
+.plant-card {
+  background: linear-gradient(135deg, white 0%, var(--bg-secondary) 100%);
+  border: 2px solid var(--accent-mint);
+  border-radius: 16px;
+  padding: 1.5rem;
+  transition: all 0.3s ease;
+}
+
+.plant-card:hover {
+  border-color: var(--secondary-cyan);
+  box-shadow: var(--shadow-lg);
+  transform: translateY(-4px);
+}
+
+.plant-card h6 {
+  color: var(--primary-green-dark);
+  font-family: var(--font-heading);
+  font-size: 1.3rem;
+}
+
+/* Border utilities */
+.border-success {
+  border-color: var(--accent-teal) !important;
+}
+
+.border-primary {
+  border-color: var(--secondary-cyan) !important;
+}
+
+.border-secondary {
+  border-color: var(--text-muted) !important;
+}
+
+/* Text colors */
+.text-muted {
+  color: var(--text-muted) !important;
+}
+
+.text-primary {
+  color: var(--primary-green) !important;
+}
+
+.text-success {
+  color: var(--accent-teal) !important;
+}
+
+/* Background utilities */
+.bg-light {
+  background: var(--bg-secondary) !important;
+}
+
+/* Marketplace specific */
+.btn-group .btn {
+  border-radius: 0;
+}
+
+.btn-group .btn:first-child {
+  border-top-left-radius: 10px;
+  border-bottom-left-radius: 10px;
+}
+
+.btn-group .btn:last-child {
+  border-top-right-radius: 10px;
+  border-bottom-right-radius: 10px;
+}
+
+/* Animations */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.card, .alert, .plant-card {
+  animation: fadeIn 0.5s ease-out;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+  width: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--bg-secondary);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--primary-green-light);
+  border-radius: 5px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--primary-green);
+}
+
+/* Mobile Responsive */
+@media (max-width: 768px) {
+  .navbar-brand {
+    font-size: 1.4rem;
+  }
+  
+  .card-body {
+    padding: 1.2rem;
+  }
+  
+  .btn {
+    font-size: 0.85rem;
+    padding: 0.5rem 1rem;
+  }
+}

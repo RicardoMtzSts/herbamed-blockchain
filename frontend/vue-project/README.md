@@ -27,6 +27,43 @@ npm install
 
 ### Compile and Hot-Reload for Development
 
+
+---
+
+## Herbamed: Firmas, RPC y Builder (Guía rápida)
+
+Este proyecto incluye soporte para construir, firmar y enviar transacciones Soroban desde el frontend.
+
+Flujo resumido:
+- `build` (unsigned XDR) → `sign` (Freighter o clave local) → `submit` al RPC.
+
+Opciones de firma (prioritarias):
+1. **Freighter**: extensión del navegador — recomendado para usuarios finales.
+2. **Clave local**: `VITE_SOROBAN_SECRET_KEY` o clave importada en la UI (solo dev/tests).
+3. **Builder service**: servicio que construye XDR en el backend y devuelve `xdr`.
+
+Variables de entorno útiles (colocar en `frontend/vue-project/.env`):
+```
+VITE_CONTRACT_ADDRESS=...
+VITE_SOROBAN_NETWORK=testnet
+VITE_SOROBAN_RPC_URL=https://soroban-testnet.stellar.org
+VITE_SOROBAN_SECRET_KEY=SA... (solo dev)
+VITE_TX_BUILDER_URL=http://127.0.0.1:4001
+```
+
+Ficheros importantes:
+- `src/soroban/client.js`: lógica de build/sign/submit y utilidades.
+- `vite.config.js`: `manualChunks` divide `stellar-sdk` en un chunk separado para mejorar tiempos de carga.
+
+Pruebas locales:
+1. `npm run dev` y abrir `http://127.0.0.1:3000/`.
+2. Para usar Freighter instala la extensión y conecta desde la UI.
+3. Para pruebas automáticas configura `VITE_SOROBAN_SECRET_KEY`.
+
+Seguridad:
+- Nunca subas claves privadas a repositorios públicos.
+- Freighter evita exponer la clave al sitio.
+
 ```sh
 npm run dev
 ```
