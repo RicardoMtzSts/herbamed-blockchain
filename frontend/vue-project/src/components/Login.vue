@@ -1,35 +1,30 @@
 <template>
   <div class="container mt-4">
-    <div class="card mx-auto" style="max-width:640px">
+    <div class="card mx-auto" style="max-width:760px">
       <div class="card-body">
-        <h4 class="card-title text-center">Conectar / Seleccionar Modo</h4>
+        <h4 class="card-title text-center">Conectar Wallet</h4>
 
-        <!-- Estado del modo actual -->
-        <div v-if="storeMode" class="alert" :class="storeMode==='demo' ? 'alert-primary' : 'alert-success'">
-          <strong>Modo actual:</strong>
-          <span v-if="storeMode==='demo'">📦 Demo (localStorage)</span>
-          <span v-else>⛓️ Blockchain (firma real)</span>
-        </div>
-
-        <!-- Selección de modo global -->
-        <div class="mb-3 p-3 border rounded bg-light">
-          <h6 class="mb-2">Selecciona el modo de la aplicación</h6>
-          <div class="d-flex gap-2 mb-2">
-            <button :class="['btn', selectedMode==='demo' ? 'btn-primary' : 'btn-outline-primary']" @click="selectedMode='demo'">Demo (localStorage)</button>
-            <button :class="['btn', selectedMode==='blockchain' ? 'btn-success' : 'btn-outline-success']" @click="selectedMode='blockchain'">Blockchain (firma real)</button>
-          </div>
-          <div v-if="selectedMode==='demo'" class="small text-muted">
-            Modo Demo: Opera sin firmar transacciones reales, datos sólo en tu navegador.
-          </div>
-            <div v-else-if="selectedMode==='blockchain'" class="small text-muted">
-            Modo Blockchain: Requiere Freighter funcional o haber importado tu SECRET_KEY.
-          </div>
-          <div class="mt-3">
-            <button class="btn btn-warning" :disabled="!canConfirmMode" @click="confirmMode">Confirmar Modo</button>
-            <span v-if="modeStatus" class="ms-2 small" :class="modeStatus.type==='error' ? 'text-danger' : 'text-success'">{{ modeStatus.message }}</span>
+        <!-- Indicador de cuenta activa -->
+        <div v-if="isAuthenticated" class="alert alert-success mb-3">
+          <div class="d-flex justify-content-between align-items-center">
+            <div>
+              <strong>✅ Cuenta Activa</strong>
+              <div class="small mt-1">
+                <strong>Clave Pública:</strong> {{ publicKey.slice(0, 8) }}…{{ publicKey.slice(-8) }}
+                <div class="mt-1"><strong>Balance:</strong> {{ balance }} XLM</div>
+                <div class="mt-1 small text-success"><strong>Método:</strong> {{ authMethodLabel }}</div>
+              </div>
+            </div>
+            <button class="btn btn-sm btn-outline-danger" @click="logout">Cerrar Sesión</button>
           </div>
         </div>
 
+        <!-- Alerta si no hay cuenta activa -->
+        <div v-else class="alert alert-warning mb-3">
+          <strong>⚠️ Sin sesión activa.</strong> Debes conectar tu wallet para acceder a otras secciones.
+        </div>
+
+        <!-- Tabs -->
         <ul class="nav nav-tabs mb-3">
           <li class="nav-item">
             <a :class="['nav-link', activeTab==='login' ? 'active' : '']" href="#" @click.prevent="activeTab='login'">Ingresar</a>
@@ -42,21 +37,51 @@
           </li>
         </ul>
 
+        <!-- TAB: LOGIN -->
         <div v-if="activeTab==='login'">
-          <p class="text-muted">Inicia sesión con la cuenta local guardada (cifrada) o conecta Freighter.</p>
-          <div class="mb-3">
-            <label class="form-label">Contraseña</label>
-            <input v-model="loginPassword" type="password" class="form-control" placeholder="Tu contraseña" />
+          <h5 class="mb-3">Métodos de Acceso</h5>
+
+          <!-- Desbloquear clave local -->
+          <div class="mb-4 p-3 border rounded bg-light">
+            <h6 class="mb-2">1️⃣ Desbloquear Clave Cifrada Local</h6>
+            <p class="small text-muted">Usa tu clave guardada cifrada en el navegador.</p>
+            <div class="mb-2">
+              <label class="form-label">Contraseña</label>
+              <input v-model="loginPassword" type="password" class="form-control" placeholder="Tu contraseña" />
+            </div>
+            <button class="btn btn-primary btn-sm" @click="loginLocal">Desbloquear</button>
           </div>
-          <div class="d-flex gap-2">
-            <button class="btn btn-primary" @click="loginLocal">Ingresar (local)</button>
-            <button class="btn btn-outline-primary" @click="connectFreighter">Conectar Freighter</button>
-            <button class="btn btn-outline-secondary" @click="logout">Desconectar</button>
+
+          <!-- Conectar Freighter -->
+          <div class="mb-4 p-3 border rounded bg-light">
+            <h6 class="mb-2">2️⃣ Conectar Freighter (Desktop)</h6>
+            <p class="small text-muted">Wallet para navegador desktop de Stellar.</p>
+            <button class="btn btn-success btn-sm" @click="connectFreighter">Conectar Freighter</button>
+            <span v-if="freighterText" class="small ms-2" :class="freighterText.includes('✓') ? 'text-success' : 'text-muted'">{{ freighterText }}</span>
+          </div>
+
+          <!-- WalletConnect QR (Mobile) -->
+          <div class="mb-4 p-3 border rounded bg-light">
+            <h6 class="mb-2">3️⃣ Conectar Mobile con QR</h6>
+            <p class="small text-muted">Escanea desde Freighter móvil (WalletConnect v2).</p>
+            <button class="btn btn-info btn-sm" @click="toggleWalletConnectQR" :disabled="generatingQR">
+              {{ wcQRVisible ? '🔻 Ocultar QR' : '📱 Generar QR' }}
+            </button>
+            <div v-if="wcQRVisible" class="mt-3 text-center">
+              <div v-if="generatingQR" class="spinner-border spinner-border-sm text-info" role="status">
+                <span class="visually-hidden">Generando QR...</span>
+              </div>
+              <div v-else-if="wcQRUrl">
+                <img :src="wcQRUrl" alt="WalletConnect QR" style="max-width: 300px;" />
+                <p class="small text-muted mt-2">{{ wcQRMessage }}</p>
+              </div>
+            </div>
           </div>
         </div>
 
+        <!-- TAB: CREATE -->
         <div v-if="activeTab==='create'">
-          <p class="text-muted">Crea una cuenta local. Se generará una clave secreta que se cifrará con la contraseña que elijas.</p>
+          <p class="text-muted">Genera una nueva clave y guárdala cifrada con tu contraseña.</p>
           <div class="mb-3">
             <label class="form-label">Contraseña</label>
             <input v-model="createPassword" type="password" class="form-control" placeholder="Nueva contraseña" />
@@ -66,43 +91,51 @@
             <input v-model="createPasswordConfirm" type="password" class="form-control" placeholder="Repetir contraseña" />
           </div>
           <div class="d-flex gap-2">
-            <button class="btn btn-success" @click="createAccount">Crear Cuenta</button>
-            <button class="btn btn-outline-secondary" @click="generateOnly">Generar (no guardar)</button>
+            <button class="btn btn-success btn-sm" @click="createAccount">Crear Cuenta</button>
+            <button class="btn btn-outline-secondary btn-sm" @click="generateOnly">Generar (no guardar)</button>
           </div>
 
-          <div v-if="newAccount">
+          <div v-if="newAccount" class="mt-3">
             <hr />
-            <h5>Cuenta generada</h5>
-            <p><strong>Public Key:</strong> {{ newAccount.publicKey }}</p>
-            <p class="text-danger"><strong>Secret (guárdala en un lugar seguro):</strong></p>
-            <pre class="p-2 bg-light">{{ newAccount.secret }}</pre>
-            <p class="small text-muted">Puedes escanear el QR para guardar la clave en tu móvil (no compartas este código).</p>
-            <img :src="qrUrl(newAccount.secret)" alt="QR" />
+            <h5>Cuenta Generada</h5>
+            <p><strong>Public Key:</strong></p>
+            <pre class="p-2 bg-light small">{{ newAccount.publicKey }}</pre>
+            <p class="text-danger"><strong>Secret (guárdala en lugar seguro):</strong></p>
+            <pre class="p-2 bg-danger bg-opacity-10 small">{{ newAccount.secret }}</pre>
+            <p class="small text-muted">Escanea el QR para guardar en móvil (no compartas):</p>
+            <img :src="qrUrl(newAccount.secret)" alt="QR" style="max-width: 200px;" />
           </div>
         </div>
 
+        <!-- TAB: IMPORT -->
         <div v-if="activeTab==='import'">
           <div class="alert alert-success mb-3">
-            <strong>✅ Método Recomendado:</strong> Importa tu SECRET_KEY para firmar transacciones directamente sin depender de Freighter.
+            <strong>✅ Recomendado:</strong> Importa SECRET_KEY para firmar sin depender de Freighter.
           </div>
-          <p class="text-muted">Pega tu clave secreta (empieza con 'S'). Puedes guardarla cifrada o solo usarla en memoria.</p>
+          <p class="text-muted">Pega tu clave secreta (empieza con 'S').</p>
           <div class="mb-3">
-            <label class="form-label">Clave secreta</label>
+            <label class="form-label">Clave Secreta</label>
             <input v-model="importSecret" type="text" class="form-control" placeholder="S..." />
           </div>
           <div class="mb-3">
-            <label class="form-label">Guardar con contraseña (opcional)</label>
-            <input v-model="importPassword" type="password" class="form-control" placeholder="Contraseña para cifrar (opcional)" />
+            <label class="form-label">Guardar Cifrada (opcional)</label>
+            <input v-model="importPassword" type="password" class="form-control" placeholder="Contraseña para cifrar" />
           </div>
           <div class="d-flex gap-2">
-            <button class="btn btn-primary" @click="importAndSave">Importar y Guardar</button>
-            <button class="btn btn-outline-primary" @click="importOnly">Solo importar (no guardar)</button>
+            <button class="btn btn-primary btn-sm" @click="importAndSave">Importar y Guardar</button>
+            <button class="btn btn-outline-primary btn-sm" @click="importOnly">Solo Importar</button>
           </div>
         </div>
 
-        <div v-if="status" class="mt-3 alert" :class="status.type === 'error' ? 'alert-danger' : 'alert-success'">{{ status.message }}</div>
+        <!-- Status Messages -->
+        <div v-if="status" class="mt-3 alert" :class="status.type === 'error' ? 'alert-danger' : 'alert-success'">
+          {{ status.message }}
+        </div>
 
-        <div class="mt-3 text-center small text-muted">Freighter: <strong>{{ freighterText }}</strong> • RPC: <strong>{{ rpcText }}</strong></div>
+        <!-- Footer Info -->
+        <div class="mt-3 text-center small text-muted">
+          Freighter: <strong>{{ freighterText }}</strong> • RPC: <strong>{{ rpcText }}</strong>
+        </div>
       </div>
     </div>
   </div>
@@ -111,11 +144,13 @@
 <script>
 import { ref, computed, onMounted } from 'vue'
 import { useStore } from 'vuex'
-import { useRouter } from 'vue-router'
 import { connectWallet, setLocalSecret, isFreighterInstalled, isRpcAvailable, waitForFreighterInjection } from '@/soroban/client'
+import { initializeWalletConnect, generateWalletConnectQR, getWalletConnectPublicKey, getActiveSession, disconnectWalletConnect } from '@/soroban/walletconnect'
+import { getAccountInfo } from '@/soroban/balance'
 import { Keypair } from '@stellar/stellar-sdk'
+import QRCode from 'qrcode'
 
-// Helpers Web Crypto
+// Crypto helpers
 function buf2b64(buf) { return btoa(String.fromCharCode(...new Uint8Array(buf))) }
 function b642buf(b64) { return Uint8Array.from(atob(b64), c => c.charCodeAt(0)) }
 
@@ -148,9 +183,8 @@ export default {
   name: 'LoginAdvanced',
   setup() {
     const store = useStore()
-    const router = useRouter()
     
-    const activeTab = ref('import')
+    const activeTab = ref('login')
     const loginPassword = ref('')
     const createPassword = ref('')
     const createPasswordConfirm = ref('')
@@ -158,32 +192,34 @@ export default {
     const importSecret = ref('')
     const importPassword = ref('')
     const status = ref(null)
-
     const freighterText = ref('Detectando...')
     const rpcText = ref('...')
-    const selectedMode = ref(null)
-    const storeMode = computed(() => store.state.mode || localStorage.getItem('herbamed:mode'))
-    const modeStatus = ref(null)
-    const canConfirmMode = computed(() => {
-      if (!selectedMode.value) return false
-      if (selectedMode.value === 'blockchain') {
-        // requerir signer local o freighter
-        const hasLocal = typeof LOCAL_SECRET !== 'undefined' && LOCAL_SECRET
-        const hasEnv = import.meta.env.VITE_SOROBAN_SECRET_KEY || ''
-        const hasFreighter = isFreighterInstalled()
-        return hasLocal || hasEnv || hasFreighter
-      }
-      return true
+    const wcQRUrl = ref(null)
+    const wcQRVisible = ref(false)
+    const generatingQR = ref(false)
+    const wcQRMessage = ref('Escanea con Freighter móvil')
+
+    const isAuthenticated = computed(() => store.state.isAuthenticated)
+    const publicKey = computed(() => store.state.publicKey)
+    const balance = computed(() => store.state.balance || '—')
+    const authMethodLabel = computed(() => {
+      const method = store.state.authMethod
+      return method === 'local-key' ? 'Clave Local' : method === 'freighter' ? 'Freighter' : method === 'walletconnect' ? 'WalletConnect Mobile' : '—'
     })
-    
+
     onMounted(async () => {
-      // Wait for Freighter to inject
       await waitForFreighterInjection()
       freighterText.value = isFreighterInstalled() ? 'Instalada ✓' : 'No detectada'
       
-      // Check RPC
       const rpcAvailable = await isRpcAvailable()
       rpcText.value = rpcAvailable ? 'Disponible' : 'No disponible'
+
+      // Initialize WalletConnect
+      try {
+        await initializeWalletConnect()
+      } catch (e) {
+        console.warn('WalletConnect init failed (non-critical):', e.message)
+      }
     })
 
     function qrUrl(content) {
@@ -191,23 +227,76 @@ export default {
       return `https://chart.googleapis.com/chart?chs=240x240&cht=qr&chl=${encoded}`
     }
 
+    async function toggleWalletConnectQR() {
+      if (wcQRVisible.value) {
+        wcQRVisible.value = false
+        return
+      }
+
+      wcQRVisible.value = true
+      generatingQR.value = true
+      try {
+        const { uri, approval } = await generateWalletConnectQR()
+        wcQRUrl.value = await QRCode.toDataURL(uri)
+        wcQRMessage.value = 'Escanea con Freighter móvil para conectar'
+
+        // Wait for approval in background
+        approval().then(async (session) => {
+          if (session) {
+            const pk = getWalletConnectPublicKey()
+            if (pk) {
+              await setSessionAsActive(pk, 'walletconnect')
+              wcQRVisible.value = false
+              status.value = { type: 'success', message: 'WalletConnect conectado correctamente' }
+            }
+          }
+        }).catch(e => {
+          console.error('WalletConnect approval failed:', e)
+          status.value = { type: 'error', message: 'Error en aprobación de WalletConnect' }
+        })
+      } catch (e) {
+        status.value = { type: 'error', message: 'Error generando QR: ' + e.message }
+      } finally {
+        generatingQR.value = false
+      }
+    }
+
+    async function setSessionAsActive(pk, method) {
+      store.commit('SET_PUBLIC_KEY', pk)
+      store.commit('SET_AUTH_METHOD', method)
+      store.commit('SET_AUTHENTICATED', true)
+
+      // Fetch balance
+      try {
+        const info = await getAccountInfo(pk)
+        if (info) {
+          store.commit('SET_BALANCE', info.balance)
+        }
+      } catch (e) {
+        console.warn('Balance fetch failed:', e.message)
+      }
+    }
+
     async function createAccount() {
       status.value = null
-      if (!createPassword.value) { status.value = { type: 'error', message: 'Ingresa una contraseña' }; return }
-      if (createPassword.value !== createPasswordConfirm.value) { status.value = { type: 'error', message: 'Las contraseñas no coinciden' }; return }
-      const kp = Keypair.random()
-      const secret = kp.secret()
-      const pub = kp.publicKey()
-      // cifrar y guardar
+      if (!createPassword.value) {
+        status.value = { type: 'error', message: 'Ingresa contraseña' }
+        return
+      }
+      if (createPassword.value !== createPasswordConfirm.value) {
+        status.value = { type: 'error', message: 'Contraseñas no coinciden' }
+        return
+      }
       try {
-        const payload = await encryptSecret(secret, createPassword.value)
+        const kp = Keypair.random()
+        const payload = await encryptSecret(kp.secret(), createPassword.value)
         localStorage.setItem('herbamed:account', JSON.stringify(payload))
-        // establecer localmente
-        setLocalSecret(secret)
-        newAccount.value = { secret, publicKey: pub }
-        status.value = { type: 'success', message: 'Cuenta creada y guardada localmente (cifrada).' }
+        setLocalSecret(kp.secret())
+        newAccount.value = { secret: kp.secret(), publicKey: kp.publicKey() }
+        await setSessionAsActive(kp.publicKey(), 'local-key')
+        status.value = { type: 'success', message: 'Cuenta creada y guardada cifrada.' }
       } catch (e) {
-        status.value = { type: 'error', message: 'Error al crear cuenta: ' + e.message }
+        status.value = { type: 'error', message: 'Error: ' + e.message }
       }
     }
 
@@ -220,98 +309,128 @@ export default {
     async function loginLocal() {
       status.value = null
       const raw = localStorage.getItem('herbamed:account')
-      if (!raw) { status.value = { type: 'error', message: 'No hay cuenta guardada localmente.' }; return }
+      if (!raw) {
+        status.value = { type: 'error', message: 'No hay cuenta guardada.' }
+        return
+      }
       try {
         const payload = JSON.parse(raw)
         const secret = await decryptSecret(payload, loginPassword.value)
+        const kp = Keypair.fromSecret(secret)
         setLocalSecret(secret)
-        status.value = { type: 'success', message: 'Sesión iniciada con cuenta local.' }
+        await setSessionAsActive(kp.publicKey(), 'local-key')
+        status.value = { type: 'success', message: 'Sesión iniciada con clave local.' }
       } catch (e) {
-        status.value = { type: 'error', message: 'Error al descifrar la cuenta. Contraseña incorrecta?' }
+        status.value = { type: 'error', message: 'Error: ' + e.message }
       }
     }
 
     async function importAndSave() {
       status.value = null
-      if (!importSecret.value) { status.value = { type: 'error', message: 'Pega la clave secreta' }; return }
-      if (!importPassword.value) { status.value = { type: 'error', message: 'Ingresa una contraseña para guardar' }; return }
+      if (!importSecret.value) {
+        status.value = { type: 'error', message: 'Pega la clave secreta' }
+        return
+      }
+      if (!importPassword.value) {
+        status.value = { type: 'error', message: 'Ingresa contraseña para guardar' }
+        return
+      }
       try {
-        // validar
-        Keypair.fromSecret(importSecret.value)
+        const kp = Keypair.fromSecret(importSecret.value)
         const payload = await encryptSecret(importSecret.value, importPassword.value)
         localStorage.setItem('herbamed:account', JSON.stringify(payload))
         setLocalSecret(importSecret.value)
-        status.value = { type: 'success', message: 'Clave importada y guardada (cifrada).' }
+        await setSessionAsActive(kp.publicKey(), 'local-key')
+        status.value = { type: 'success', message: 'Clave importada y guardada.' }
       } catch (e) {
-        status.value = { type: 'error', message: 'Clave inválida: ' + e.message }
+        status.value = { type: 'error', message: 'Error: ' + e.message }
       }
     }
 
     function importOnly() {
       try {
+        const kp = Keypair.fromSecret(importSecret.value)
         setLocalSecret(importSecret.value)
-        status.value = { type: 'success', message: 'Clave importada en memoria (no guardada).' }
+        status.value = { type: 'success', message: 'Clave importada en memoria.' }
       } catch (e) {
-        status.value = { type: 'error', message: 'Clave inválida: ' + e.message }
+        status.value = { type: 'error', message: 'Error: ' + e.message }
       }
     }
 
     async function connectFreighter() {
       status.value = null
       try {
-        // Attempt connection (will wait for Freighter injection)
         const pk = await connectWallet()
         if (!pk) {
-          status.value = { type: 'error', message: 'Freighter no devolvió una clave pública. ¿Rechazaste la conexión?' }
+          status.value = { type: 'error', message: 'Freighter rechazó la conexión' }
           return
         }
         freighterText.value = 'Conectada ✓'
+        await setSessionAsActive(pk, 'freighter')
         status.value = { type: 'success', message: 'Freighter conectada: ' + pk }
       } catch (e) {
-        const errorMsg = e.message || String(e)
-        if (errorMsg.includes('not available') || errorMsg.includes('API not available')) {
-          status.value = { type: 'error', message: 'Freighter no está instalada o no está habilitada. Instálala desde: https://freighter.app' }
-        } else if (errorMsg.includes('User declined')) {
-          status.value = { type: 'error', message: 'Rechazaste la conexión en Freighter' }
+        const msg = e.message || String(e)
+        if (msg.includes('not available')) {
+          status.value = { type: 'error', message: 'Freighter no está instalada. Descárgala en: https://freighter.app' }
         } else {
-          status.value = { type: 'error', message: 'Error conectando Freighter: ' + errorMsg }
+          status.value = { type: 'error', message: 'Error: ' + msg }
         }
       }
     }
 
-    function logout() {
-      // limpiar estado local (no borra almacenamiento)
-      setLocalSecret && setLocalSecret('')
-      status.value = { type: 'success', message: 'Desconectado (nota: la clave almacenada sigue en localStorage si la guardaste).' }
-    }
-
-    async function confirmMode() {
-      modeStatus.value = null
-      if (!selectedMode.value) {
-        modeStatus.value = { type: 'error', message: 'Selecciona un modo primero.' }
-        return
-      }
-      if (selectedMode.value === 'blockchain' && !canConfirmMode.value) {
-        modeStatus.value = { type: 'error', message: 'Necesitas importar SECRET_KEY o tener Freighter disponible.' }
-        return
-      }
+    async function logout() {
       try {
-        await store.dispatch('setMode', selectedMode.value)
-        modeStatus.value = { type: 'success', message: 'Modo establecido: ' + selectedMode.value }
-        // redirigir después de un breve delay para mostrar el mensaje
-        setTimeout(() => {
-          router.push({ name: 'plants' })
-        }, 500)
+        // Disconnect WalletConnect if active
+        if (store.state.authMethod === 'walletconnect') {
+          await disconnectWalletConnect()
+        }
+        
+        setLocalSecret('')
+        store.commit('SET_PUBLIC_KEY', null)
+        store.commit('SET_BALANCE', null)
+        store.commit('SET_AUTHENTICATED', false)
+        store.commit('SET_AUTH_METHOD', null)
+        status.value = { type: 'success', message: 'Sesión cerrada.' }
       } catch (e) {
-        modeStatus.value = { type: 'error', message: 'Error guardando modo: ' + (e.message || e) }
+        status.value = { type: 'error', message: 'Error al cerrar sesión: ' + e.message }
       }
     }
 
-    return { activeTab, loginPassword, createPassword, createPasswordConfirm, newAccount, importSecret, importPassword, status, freighterText, rpcText, qrUrl, createAccount, generateOnly, loginLocal, importAndSave, importOnly, connectFreighter, logout, selectedMode, modeStatus, canConfirmMode, confirmMode, storeMode }
+    return {
+      activeTab,
+      loginPassword,
+      createPassword,
+      createPasswordConfirm,
+      newAccount,
+      importSecret,
+      importPassword,
+      status,
+      freighterText,
+      rpcText,
+      wcQRUrl,
+      wcQRVisible,
+      generatingQR,
+      wcQRMessage,
+      isAuthenticated,
+      publicKey,
+      balance,
+      authMethodLabel,
+      qrUrl,
+      toggleWalletConnectQR,
+      createAccount,
+      generateOnly,
+      loginLocal,
+      importAndSave,
+      importOnly,
+      connectFreighter,
+      logout
+    }
   }
 }
 </script>
 
 <style scoped>
-pre { white-space: pre-wrap; word-break: break-word; }
+pre { white-space: pre-wrap; word-break: break-word; font-size: 0.85rem; }
+.border { border-color: #ddd !important; }
+.bg-light { background-color: #f8f9fa !important; }
 </style>

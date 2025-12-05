@@ -4,13 +4,15 @@
       <div class="container-fluid">
         <a class="navbar-brand" href="#">HerbaMed</a>
         
-        <!-- Indicador de modo actual (solo visual) -->
-        <div v-if="currentMode" class="d-flex align-items-center me-3">
-          <span v-if="currentMode === 'demo'" class="badge bg-primary fs-6">
-            📦 Modo: Demo
+        <!-- Indicador de autenticación -->
+        <div v-if="isAuthenticated" class="d-flex align-items-center me-3">
+          <span class="badge bg-success fs-6">
+            ✅ Conectado
           </span>
-          <span v-else class="badge bg-success fs-6">
-            ⛓️ Modo: Blockchain
+        </div>
+        <div v-else class="d-flex align-items-center me-3">
+          <span class="badge bg-warning fs-6">
+            ⚠️ Sin sesión
           </span>
         </div>
         
@@ -20,16 +22,40 @@
         <div class="collapse navbar-collapse" id="navbarNav">
           <ul class="navbar-nav ms-auto">
             <li class="nav-item">
-              <router-link class="nav-link" to="/plants">🌱 Plantas</router-link>
+              <router-link 
+                :class="['nav-link', !isAuthenticated ? 'disabled' : '']" 
+                :to="isAuthenticated ? '/plants' : '#'"
+                @click.prevent="!isAuthenticated && showAuthWarning()"
+              >
+                🌱 Plantas
+              </router-link>
             </li>
             <li class="nav-item">
-              <router-link class="nav-link" to="/plants/register">➕ Registrar</router-link>
+              <router-link 
+                :class="['nav-link', !isAuthenticated ? 'disabled' : '']" 
+                :to="isAuthenticated ? '/plants/register' : '#'"
+                @click.prevent="!isAuthenticated && showAuthWarning()"
+              >
+                ➕ Registrar
+              </router-link>
             </li>
             <li class="nav-item">
-              <router-link class="nav-link" to="/marketplace">🛒 Marketplace</router-link>
+              <router-link 
+                :class="['nav-link', !isAuthenticated ? 'disabled' : '']" 
+                :to="isAuthenticated ? '/marketplace' : '#'"
+                @click.prevent="!isAuthenticated && showAuthWarning()"
+              >
+                🛒 Marketplace
+              </router-link>
             </li>
             <li class="nav-item">
-              <router-link class="nav-link" to="/validator">✓ Validadores</router-link>
+              <router-link 
+                :class="['nav-link', !isAuthenticated ? 'disabled' : '']" 
+                :to="isAuthenticated ? '/validator' : '#'"
+                @click.prevent="!isAuthenticated && showAuthWarning()"
+              >
+                ✓ Validadores
+              </router-link>
             </li>
             <li class="nav-item">
               <router-link class="nav-link" to="/login">🔑 Wallet</router-link>
@@ -38,13 +64,6 @@
         </div>
       </div>
     </nav>
-    <!-- Barra de estado de navegación -->
-    <div class="bg-light text-muted small px-3 py-2 shadow-sm">
-      <span v-if="currentMode==='demo'">📦 Demo</span>
-      <span v-else-if="currentMode==='blockchain'">⛓️ Blockchain</span>
-      <span v-else>⚙️ Modo no seleccionado</span>
-      · Vista: <strong>{{ currentView }}</strong>
-    </div>
 
     <main class="py-5">
       <router-view />
@@ -55,20 +74,21 @@
 <script>
 import { computed } from 'vue'
 import { useStore } from 'vuex'
-import { useRoute } from 'vue-router'
 
 export default {
   name: 'App',
   setup() {
     const store = useStore()
-    const route = useRoute()
     
-    const currentMode = computed(() => store.state.mode)
-    const currentView = computed(() => route.name || route.path)
+    const isAuthenticated = computed(() => store.state.isAuthenticated)
+    
+    const showAuthWarning = () => {
+      alert('⚠️ Debes conectar tu wallet en la sección de Login primero')
+    }
     
     return {
-      currentMode,
-      currentView
+      isAuthenticated,
+      showAuthWarning
     }
   }
 }
@@ -77,5 +97,11 @@ export default {
 <style>
 #app {
   min-height: 100vh;
+}
+
+.nav-link.disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  pointer-events: none;
 }
 </style>

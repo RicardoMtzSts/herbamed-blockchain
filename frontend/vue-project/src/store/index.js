@@ -5,14 +5,22 @@ export default createStore({
     plants: [],
     validators: [],
     publicKey: null,
-    mode: null // 'demo' | 'blockchain'
+    balance: null,
+    isAuthenticated: false,
+    authMethod: null // 'local-key', 'freighter', 'walletconnect'
   },
   mutations: {
     SET_PUBLIC_KEY(state, pk) {
       state.publicKey = pk
     },
-    SET_MODE(state, mode) {
-      state.mode = mode
+    SET_BALANCE(state, balance) {
+      state.balance = balance
+    },
+    SET_AUTHENTICATED(state, isAuth) {
+      state.isAuthenticated = isAuth
+    },
+    SET_AUTH_METHOD(state, method) {
+      state.authMethod = method
     },
     SET_PLANTS(state, plants) {
       state.plants = plants
@@ -31,19 +39,6 @@ export default createStore({
     }
   },
   actions: {
-    initMode({ commit }) {
-      try {
-        const saved = localStorage.getItem('herbamed:mode')
-        if (saved === 'demo' || saved === 'blockchain') {
-          commit('SET_MODE', saved)
-        }
-      } catch (_) { /* ignore */ }
-    },
-    setMode({ commit }, mode) {
-      if (mode !== 'demo' && mode !== 'blockchain') throw new Error('Modo inválido')
-      commit('SET_MODE', mode)
-      try { localStorage.setItem('herbamed:mode', mode) } catch (_) { /* ignore */ }
-    },
     async fetchPlants({ commit }) {
       try {
         // TODO: Implementar la llamada al smart contract
@@ -83,7 +78,6 @@ export default createStore({
     },
     getPendingPlants: (state) => {
       return state.plants.filter(plant => !plant.validated)
-    },
-    currentMode: (state) => state.mode
+    }
   }
 })

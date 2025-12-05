@@ -51,18 +51,8 @@
           voting: false
         }
       },
-      computed: {
-        mode() {
-          return this.$store?.state?.mode || localStorage.getItem('herbamed:mode')
-        }
-      },
       async created() {
         await this.loadPendingPlants()
-      },
-      watch: {
-        mode() {
-          this.loadPendingPlants()
-        }
       },
       methods: {
         async loadPendingPlants() {

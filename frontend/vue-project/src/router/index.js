@@ -1,5 +1,5 @@
 import { createRouter, createWebHistory } from 'vue-router'
-import store from '../store'
+import { useStore } from 'vuex'
 import PlantList from '../views/plants/PlantList.vue'
 import PlantRegistration from '../views/plants/PlantRegistration.vue'
 import ValidatorDashboard from '../views/validators/ValidatorDashboard.vue'
@@ -22,42 +22,47 @@ const router = createRouter({
     {
       path: '/login',
       name: 'login',
-      component: Login
+      component: Login,
+      meta: { requiresAuth: false }
     },
     {
       path: '/plants',
       name: 'plants',
-      component: PlantList
+      component: PlantList,
+      meta: { requiresAuth: true }
     },
     {
       path: '/plants/register',
       name: 'plant-registration',
-      component: PlantRegistration
+      component: PlantRegistration,
+      meta: { requiresAuth: true }
     },
     {
       path: '/marketplace',
       name: 'marketplace',
-      component: MarketPlace
+      component: MarketPlace,
+      meta: { requiresAuth: true }
     },
     {
       path: '/validator',
       name: 'validator-dashboard',
-      component: ValidatorDashboard
+      component: ValidatorDashboard,
+      meta: { requiresAuth: true }
     }
   ]
 })
 
-// Route guard: must select mode before accessing any route except login
+// Auth guard: redirige a /login si no está autenticado
 router.beforeEach((to, from, next) => {
-  const mode = store.state.mode || localStorage.getItem('herbamed:mode')
-  if (!mode && to.name !== 'login') {
-    return next({ name: 'login' })
-  }
-  // Permitir volver a login si se clickea el botón de cambiar modo
-  next()
-})
+  const store = useStore()
+  const isAuthenticated = store.state.isAuthenticated
+  const requiresAuth = to.meta.requiresAuth !== false
 
-// Initialize mode on first load
-store.dispatch('initMode').catch(() => {})
+  if (requiresAuth && !isAuthenticated) {
+    next('/login')
+  } else {
+    next()
+  }
+})
 
 export default router
