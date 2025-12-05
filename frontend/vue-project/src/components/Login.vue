@@ -71,8 +71,8 @@
               <div v-if="generatingQR" class="spinner-border spinner-border-sm text-info" role="status">
                 <span class="visually-hidden">Generando QR...</span>
               </div>
-              <div v-else-if="wcQRUrl">
-                <img :src="wcQRUrl" alt="WalletConnect QR" style="max-width: 300px;" />
+              <div v-else>
+                <canvas id="walletConnectQR" style="max-width: 300px; border: 2px solid #ddd; padding: 10px; background: white;"></canvas>
                 <p class="small text-muted mt-2">{{ wcQRMessage }}</p>
               </div>
             </div>
@@ -142,7 +142,7 @@
 </template>
 
 <script>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, nextTick } from 'vue'
 import { useStore } from 'vuex'
 import { connectWallet, setLocalSecret, isFreighterInstalled, isRpcAvailable, waitForFreighterInjection } from '@/soroban/client'
 import { initializeWalletConnect, generateWalletConnectQR, getWalletConnectPublicKey, getActiveSession, disconnectWalletConnect } from '@/soroban/walletconnect'
@@ -233,12 +233,38 @@ export default {
         return
       }
 
+      // Primero mostrar el contenedor con canvas
       wcQRVisible.value = true
-      generatingQR.value = true
+      generatingQR.value = false // Mostrar canvas inmediatamente
+      
+      // Esperar a que el DOM se actualice
+      await nextTick()
+      
       try {
         const { uri, approval } = await generateWalletConnectQR()
-        wcQRUrl.value = await QRCode.toDataURL(uri)
+        console.log('WalletConnect URI:', uri)
+        
+        // Obtener canvas directamente del DOM
+        const canvas = document.getElementById('walletConnectQR')
+        console.log('Canvas element:', canvas)
+        
+        if (!canvas) {
+          throw new Error('Canvas element no encontrado en el DOM')
+        }
+        
+        // Renderizar QR directamente en canvas (evita CSP issues)
+        await QRCode.toCanvas(canvas, uri, {
+          width: 300,
+          margin: 2,
+          color: {
+            dark: '#000000',
+            light: '#FFFFFF'
+          }
+        })
+        
+        wcQRUrl.value = uri // Guardar URI para referencia
         wcQRMessage.value = 'Escanea con Freighter móvil para conectar'
+        console.log('QR generado exitosamente')
 
         // Wait for approval in background
         approval().then(async (session) => {
@@ -255,6 +281,7 @@ export default {
           status.value = { type: 'error', message: 'Error en aprobación de WalletConnect' }
         })
       } catch (e) {
+        console.error('Error generando QR:', e)
         status.value = { type: 'error', message: 'Error generando QR: ' + e.message }
       } finally {
         generatingQR.value = false
@@ -396,6 +423,11 @@ export default {
       }
     }
 
+    function handleQRError(event) {
+      console.error('Error cargando imagen QR:', event)
+      status.value = { type: 'error', message: 'Error cargando imagen QR. Verifica la consola.' }
+    }
+
     return {
       activeTab,
       loginPassword,
@@ -417,6 +449,7 @@ export default {
       authMethodLabel,
       qrUrl,
       toggleWalletConnectQR,
+      handleQRError,
       createAccount,
       generateOnly,
       loginLocal,

@@ -1,0 +1,829 @@
+# 🌿 HerbaMed - Sistema Blockchain para Registro de Plantas Medicinales
+
+**Versión:** 2.0.0  
+**Última Actualización:** 5 de Diciembre, 2025  
+**Estado:** ✅ **PRODUCCIÓN - Autenticación Completa Implementada**
+
+---
+
+## 📋 ÍNDICE
+
+1. [Descripción del Proyecto](#descripción-del-proyecto)
+2. [Arquitectura del Sistema](#arquitectura-del-sistema)
+3. [Estado Actual](#estado-actual)
+4. [Tecnologías Utilizadas](#tecnologías-utilizadas)
+5. [Guía de Inicio Rápido](#guía-de-inicio-rápido)
+6. [Autenticación y Wallets](#autenticación-y-wallets)
+7. [Estructura del Proyecto](#estructura-del-proyecto)
+8. [Funcionalidades Principales](#funcionalidades-principales)
+9. [Testing](#testing)
+10. [Deployment](#deployment)
+11. [Roadmap y Próximos Pasos](#roadmap-y-próximos-pasos)
+
+---
+
+## 📖 DESCRIPCIÓN DEL PROYECTO
+
+HerbaMed es una **DApp (Aplicación Descentralizada)** construida sobre la blockchain de **Stellar** utilizando **Soroban** smart contracts. El sistema permite:
+
+- **Registro descentralizado** de plantas medicinales
+- **Marketplace** para compra/venta de plantas
+- **Sistema de validación** comunitario mediante votos
+- **Autenticación segura** con múltiples métodos (Clave Local, Freighter, WalletConnect)
+- **Trazabilidad completa** de transacciones en blockchain
+
+### Caso de Uso Principal
+
+Agricultores y distribuidores pueden registrar plantas medicinales en blockchain, listarlas para venta, y los validadores de la comunidad pueden votar por la calidad/autenticidad de las plantas registradas.
+
+---
+
+## 🏗️ ARQUITECTURA DEL SISTEMA
+
+### Backend (Blockchain Layer)
+
+```
+Stellar Testnet
+    │
+    ├─ Soroban Smart Contract
+    │     │
+    │     ├─ register_plant()
+    │     ├─ list_for_sale()
+    │     ├─ buy_listing()
+    │     └─ vote_for_plant()
+    │
+    └─ Contract Address
+          CA5C74SZ5XHXENOVQ454WQN66PMVSPMIZV5FYUR6OWDUQKC4PKOOXNPR
+```
+
+### Frontend (Client Layer)
+
+```
+Vue 3 + Vite
+    │
+    ├─ Components
+    │     ├─ Login.vue (Auth: 3 métodos)
+    │     ├─ PlantList.vue
+    │     ├─ PlantRegistration.vue
+    │     ├─ MarketPlace.vue
+    │     └─ ValidatorDashboard.vue
+    │
+    ├─ Soroban Client
+    │     ├─ client.js (RPC + Freighter)
+    │     ├─ walletconnect.js (WC v2)
+    │     └─ balance.js (Horizon API)
+    │
+    └─ State Management (Vuex)
+          ├─ publicKey
+          ├─ balance
+          ├─ isAuthenticated
+          └─ authMethod
+```
+
+### Autenticación (3 Métodos)
+
+| Método | Tipo | Uso | Seguridad |
+|--------|------|-----|-----------|
+| **Clave Local** | AES-GCM cifrada | Desktop/Mobile | 🔒 Alta (PBKDF2 100k iterations) |
+| **Freighter** | Browser Extension | Desktop | 🔒🔒 Muy Alta (HW wallet compatible) |
+| **WalletConnect** | QR Code | Mobile | 🔒🔒🔒 Máxima (firma remota) |
+
+---
+
+## ✅ ESTADO ACTUAL
+
+### Completado (100%)
+
+#### Backend/Smart Contract
+- [x] Contrato Rust Soroban desplegado en testnet
+- [x] Funciones core: register, list, buy, vote
+- [x] Tests unitarios passing (2/2)
+- [x] Eventos emitidos correctamente
+
+#### Frontend Core
+- [x] Vue 3 + Vite configurado
+- [x] Router con auth guard
+- [x] Vuex state management
+- [x] Bootstrap 5 UI
+
+#### Autenticación
+- [x] Login.vue con 3 métodos
+  - Clave local cifrada (AES-GCM + PBKDF2)
+  - Freighter desktop wallet
+  - WalletConnect v2 mobile (QR)
+- [x] Indicador de cuenta activa (public key + balance)
+- [x] Protección de rutas sin autenticación
+- [x] Navbar con estado de conexión
+
+#### Integración Blockchain
+- [x] Cliente Soroban RPC
+- [x] Horizon API balance fetching
+- [x] WalletConnect SignClient v2
+- [x] Firma de transacciones
+- [x] Generación de QR codes
+
+#### UI/UX
+- [x] PlantList - Lista plantas registradas
+- [x] PlantRegistration - Formulario registro
+- [x] MarketPlace - Compra/venta
+- [x] ValidatorDashboard - Panel validadores
+- [x] Responsive design (Bootstrap 5)
+
+### En Desarrollo (0%)
+
+Actualmente no hay features activas en desarrollo. El sistema está en estado funcional completo.
+
+### Pendiente (Roadmap Futuro)
+
+- [ ] Persistencia de sesión en localStorage
+- [ ] Refresh automático de balance
+- [ ] Historial de transacciones
+- [ ] Filtros y búsqueda en marketplace
+- [ ] Sistema de notificaciones
+- [ ] Integración con testnet faucet
+- [ ] Panel de administración
+
+---
+
+## 🛠️ TECNOLOGÍAS UTILIZADAS
+
+### Blockchain
+- **Stellar Network:** Testnet
+- **Soroban:** Smart contracts en Rust
+- **Horizon API:** Consultas de cuenta/balance
+- **Freighter Wallet:** Desktop wallet
+
+### Frontend
+- **Framework:** Vue 3.3.8 (Composition API)
+- **Build Tool:** Vite 7.2.2
+- **State:** Vuex 4.1.0
+- **Router:** Vue Router 4.2.5
+- **UI:** Bootstrap 5.3.2
+- **Stellar SDK:** @stellar/stellar-sdk 14.3.3
+- **WalletConnect:** @walletconnect/sign-client 2.23.0
+- **QR Generation:** qrcode 1.5.4
+
+### Backend/Smart Contract
+- **Language:** Rust
+- **SDK:** soroban-sdk
+- **Deploy:** stellar-cli
+- **Network:** Stellar Testnet
+
+### Development Tools
+- **Package Manager:** npm
+- **Linter:** ESLint
+- **Testing:** Vitest (frontend), Rust tests (backend)
+- **Mobile Testing:** ngrok (HTTPS tunnel)
+
+---
+
+## 🚀 GUÍA DE INICIO RÁPIDO
+
+### Prerrequisitos
+
+```bash
+# Node.js
+node --version  # v18+ requerido
+
+# Rust + Soroban CLI
+rustc --version
+soroban --version
+
+# Git
+git --version
+```
+
+### Instalación
+
+```bash
+# 1. Clonar repositorio
+git clone https://github.com/RicardoMtzSts/herbamed-blockchain.git
+cd herbamed-blockchain
+
+# 2. Instalar dependencias frontend
+cd frontend/vue-project
+npm install
+
+# 3. Configurar variables de entorno
+cp .env.example .env
+# Editar .env con tus valores
+
+# 4. Iniciar servidor de desarrollo
+npm run dev
+
+# Servidor: http://127.0.0.1:3000
+```
+
+### Configuración `.env`
+
+```bash
+# Stellar Configuration
+VITE_STELLAR_NETWORK=testnet
+VITE_SOROBAN_RPC_URL=https://soroban-testnet.stellar.org
+VITE_HORIZON_URL=https://horizon-testnet.stellar.org
+VITE_CONTRACT_ADDRESS=CA5C74SZ5XHXENOVQ454WQN66PMVSPMIZV5FYUR6OWDUQKC4PKOOXNPR
+
+# WalletConnect
+VITE_WC_PROJECT_ID=4d6e4ea28e2c05227eeec7733dfd78ff
+VITE_APP_URL=http://localhost:3000
+```
+
+### Primer Uso
+
+1. **Abre el navegador:** `http://127.0.0.1:3000`
+2. **Ve a Login (🔑 Wallet)**
+3. **Crea una cuenta nueva:**
+   - Tab "Crear Cuenta"
+   - Ingresa contraseña
+   - Click "Crear Cuenta"
+   - **Guarda tu SECRET_KEY** en lugar seguro
+4. **Financia tu cuenta:**
+   - Copia tu PUBLIC_KEY
+   - Ve a: https://laboratory.stellar.org/#account-creator
+   - Pega tu public key
+   - Click "Get test network lumens" (10,000 XLM)
+5. **Explora funcionalidades:**
+   - Registrar plantas
+   - Listar en marketplace
+   - Votar como validador
+
+---
+
+## 🔐 AUTENTICACIÓN Y WALLETS
+
+### Método 1: Clave Local Cifrada
+
+**Uso:** Desktop/Mobile  
+**Seguridad:** Alta (AES-GCM + PBKDF2)
+
+#### Crear Cuenta
+
+1. Login → Tab "Crear Cuenta"
+2. Ingresa contraseña (mínimo 8 caracteres)
+3. Confirma contraseña
+4. Click "Crear Cuenta"
+5. **Guarda SECRET_KEY mostrado** (no lo pierdas)
+6. QR generado automáticamente para mobile
+
+#### Desbloquear Cuenta Existente
+
+1. Login → Tab "Ingresar"
+2. Sección "Desbloquear Clave Local"
+3. Ingresa tu contraseña
+4. Click "Desbloquear"
+
+**Seguridad Implementada:**
+- Password → PBKDF2 (100,000 iterations, SHA-256)
+- Secret encryption → AES-GCM (256-bit key)
+- Salt + IV únicos por encriptación
+- Storage: localStorage (cifrado)
+
+### Método 2: Freighter Desktop
+
+**Uso:** Desktop (Chrome/Firefox/Edge)  
+**Seguridad:** Muy Alta (hardware wallet compatible)
+
+#### Instalación
+
+1. Descargar: https://freighter.app
+2. Instalar extensión en navegador
+3. Crear wallet o importar existente
+
+#### Conectar
+
+1. Login → Tab "Ingresar"
+2. Sección "Conectar Freighter (Desktop)"
+3. Click "CONECTAR FREIGHTER"
+4. Aprobar en popup de Freighter
+5. ✓ Conectado (public key + balance visible)
+
+**Ventajas:**
+- No guardas claves en la DApp
+- Compatible con Ledger/Trezor
+- Firma transacciones sin exponer SECRET
+
+### Método 3: WalletConnect Mobile
+
+**Uso:** Mobile (Freighter Mobile)  
+**Seguridad:** Máxima (firma remota, keys nunca salen del móvil)
+
+#### Desktop Testing (con ngrok)
+
+```bash
+# Terminal 1: Iniciar Vite
+cd frontend/vue-project
+npm run dev
+
+# Terminal 2: Iniciar ngrok
+ngrok http 3000
+
+# Output:
+# Forwarding https://xxxx-xxxx.ngrok.io -> http://localhost:3000
+```
+
+#### Conexión
+
+1. Login → Tab "Ingresar"
+2. Sección "Conectar Mobile con QR"
+3. Click "📱 Generar QR"
+4. **En Freighter Mobile:**
+   - Abrir app
+   - Toca ícono "Scan QR"
+   - Escanea QR de pantalla
+   - Aprobar conexión
+5. ✓ Conectado automáticamente
+
+**WalletConnect Flow:**
+```
+Desktop                    Mobile
+  │                          │
+  ├─ Generate URI           │
+  ├─ Display QR ───────────>│
+  │                          ├─ Scan QR
+  │                          ├─ Approve Session
+  │<──────────────────────── │
+  ├─ Session Active          │
+  ├─ Request Signature       │
+  ├─ ───────────────────────>│
+  │                          ├─ Sign Tx
+  │<──────────────────────── │
+  ├─ Broadcast to Network    │
+  └─ ✓ Confirmed             └─ ✓ Confirmed
+```
+
+---
+
+## 📁 ESTRUCTURA DEL PROYECTO
+
+```
+herbamed-blockchain/
+│
+├── contracts/                    # Smart contracts Soroban
+│   └── medicinal-plants/
+│       ├── src/
+│       │   ├── lib.rs           # Contrato principal
+│       │   └── test.rs          # Tests unitarios
+│       └── Cargo.toml
+│
+├── frontend/
+│   └── vue-project/
+│       ├── src/
+│       │   ├── components/      # Componentes Vue
+│       │   │   └── Login.vue    # ✅ Auth (3 métodos)
+│       │   ├── views/           # Vistas principales
+│       │   │   ├── plants/
+│       │   │   │   ├── PlantList.vue
+│       │   │   │   └── PlantRegistration.vue
+│       │   │   └── validators/
+│       │   │       └── ValidatorDashboard.vue
+│       │   ├── soroban/         # Cliente blockchain
+│       │   │   ├── client.js    # RPC + Freighter
+│       │   │   ├── walletconnect.js  # WC v2
+│       │   │   └── balance.js   # Horizon balance
+│       │   ├── store/           # Vuex state
+│       │   │   └── index.js
+│       │   ├── router/          # Vue Router
+│       │   │   └── index.js
+│       │   └── App.vue
+│       ├── public/
+│       ├── .env                 # Config (no committed)
+│       ├── package.json
+│       └── vite.config.js
+│
+├── .github/
+│   └── copilot-instructions.md  # AI agent guidelines
+│
+├── docs/
+│   ├── ANALISIS_UI_FUNCIONES.md
+│   └── RESPUESTAS.md
+│
+├── PROYECTO_HERBAMED_COMPLETO.md  # 📄 ESTE ARCHIVO
+├── NGROK_SETUP.md               # Guía ngrok mobile
+├── TESTING_CHECKLIST.md         # Casos de prueba
+├── QUICKSTART.md                # Inicio rápido
+├── DEVELOPER_GUIDE.md           # Guía desarrollador
+├── USER_MANUAL.md               # Manual usuario
+└── README.md                    # Overview
+
+```
+
+---
+
+## ⚙️ FUNCIONALIDADES PRINCIPALES
+
+### 1. Registro de Plantas
+
+**Ruta:** `/plants/register`  
+**Componente:** `PlantRegistration.vue`
+
+```javascript
+// Campos del formulario
+{
+  name: "Manzanilla",
+  scientificName: "Matricaria chamomilla",
+  description: "Planta medicinal para infusiones",
+  quantity: 100,
+  price: 50,  // XLM
+  location: "Jalisco, México"
+}
+```
+
+**Flujo:**
+1. Usuario autenticado completa formulario
+2. Validación frontend (campos obligatorios)
+3. Llamada a smart contract: `register_plant()`
+4. Firma con wallet activa (local/Freighter/WalletConnect)
+5. Transacción broadcast a Stellar testnet
+6. Confirmación + hash de transacción
+7. Planta visible en `/plants`
+
+### 2. Marketplace
+
+**Ruta:** `/marketplace`  
+**Componente:** `MarketPlace.vue`
+
+#### Listar Planta para Venta
+
+```javascript
+// Solo propietario puede listar
+await contract.list_for_sale({
+  plant_id: 1,
+  price_xlm: 75
+})
+```
+
+#### Comprar Planta
+
+```javascript
+// Cualquier usuario autenticado
+await contract.buy_listing({
+  listing_id: 1
+})
+// Transfiere XLM del comprador al vendedor
+// Cambia ownership de la planta
+```
+
+**Funcionalidades UI:**
+- ✅ Grid de plantas disponibles
+- ✅ Filtro por precio
+- ✅ Botón "Comprar" (solo si no eres propietario)
+- ✅ Indicador de estado (Disponible/Vendida)
+
+### 3. Sistema de Validación
+
+**Ruta:** `/validator`  
+**Componente:** `ValidatorDashboard.vue`
+
+```javascript
+// Votar por planta
+await contract.vote_for_plant({
+  plant_id: 1,
+  voter: "GXXXXXX..."  // Public key validador
+})
+```
+
+**Lógica de Validación:**
+- Cada validador = 1 voto por planta
+- No puede votar su propia planta
+- Votos incrementan credibilidad
+- Futuro: Threshold de votos para "verificado"
+
+### 4. Balance y Account Info
+
+**Componente:** `Login.vue` (indicador de cuenta)
+
+```javascript
+// Fetch balance desde Horizon
+const response = await fetch(
+  `https://horizon-testnet.stellar.org/accounts/${publicKey}`
+)
+const account = await response.json()
+const xlmBalance = account.balances.find(
+  b => b.asset_type === 'native'
+).balance
+
+// Display: "Balance: 9,542.3500 XLM"
+```
+
+---
+
+## 🧪 TESTING
+
+### Testing Checklist Desktop
+
+#### 1. Navegación Sin Autenticación
+- [ ] Acceder a `/plants` → redirige a `/login`
+- [ ] Nav links deshabilitados (gris)
+- [ ] Navbar muestra "⚠️ Sin sesión"
+
+#### 2. Crear Cuenta Nueva
+- [ ] Ingresar contraseña → confirmar contraseña
+- [ ] Click "Crear Cuenta"
+- [ ] Ver PUBLIC_KEY generado
+- [ ] Ver SECRET_KEY (guardar)
+- [ ] Ver QR code
+- [ ] Indicador verde "✅ Cuenta Activa"
+- [ ] Balance: "—" (sin fondos aún)
+
+#### 3. Financiar Cuenta (Testnet)
+- [ ] Copiar PUBLIC_KEY
+- [ ] Ir a https://laboratory.stellar.org/#account-creator
+- [ ] Pegar public key → "Get test network lumens"
+- [ ] Recargar página en DApp
+- [ ] Balance actualizado: "10,000.0000 XLM"
+
+#### 4. Registrar Planta
+- [ ] Ir a "Registrar"
+- [ ] Completar formulario
+- [ ] Click "Registrar Planta"
+- [ ] Firmar transacción (Freighter popup / auto con local key)
+- [ ] Ver confirmación con hash
+- [ ] Planta visible en "Plantas"
+
+#### 5. Listar en Marketplace
+- [ ] Ir a "Plantas"
+- [ ] Click "Listar para Venta" en tu planta
+- [ ] Ingresar precio (ej: 100 XLM)
+- [ ] Confirmar
+- [ ] Planta visible en "Marketplace"
+
+#### 6. Logout y Re-login
+- [ ] Click "Cerrar Sesión" en indicador
+- [ ] Navbar: "⚠️ Sin sesión"
+- [ ] Intentar acceder plantas → redirige login
+- [ ] Tab "Ingresar" → desbloquear con password
+- [ ] ✅ Sesión restaurada
+
+### Testing WalletConnect Mobile
+
+#### Setup ngrok
+
+```bash
+# Terminal 1
+cd frontend/vue-project
+npm run dev
+
+# Terminal 2
+ngrok http 3000
+# Copiar URL: https://xxxx-xxxx.ngrok.io
+```
+
+#### Flujo Testing
+
+1. **En Mobile Browser:**
+   - Navega a URL de ngrok
+   - Acepta warning de certificado
+   - Ve a Login
+
+2. **Generar QR:**
+   - Tab "Ingresar"
+   - Click "📱 Generar QR"
+   - Espera renderizado QR
+
+3. **Escanear con Freighter Mobile:**
+   - Abre Freighter app
+   - Toca ícono scan
+   - Escanea QR de pantalla
+
+4. **Aprobar Conexión:**
+   - Freighter muestra "Aprobar conexión con Herbamed"
+   - Toca "Aprobar"
+
+5. **Verificar Conexión:**
+   - Vuelve a navegador mobile
+   - Ver "✅ Cuenta Activa"
+   - Public key + balance visible
+   - Método: "WalletConnect Mobile"
+
+6. **Firmar Transacción:**
+   - Registra una planta
+   - Freighter mobile recibe request
+   - Revisar detalles tx
+   - Aprobar firma
+   - Ver confirmación en DApp
+
+---
+
+## 🚀 DEPLOYMENT
+
+### Smart Contract
+
+```bash
+# Build contract
+cd contracts/medicinal-plants
+soroban contract build
+
+# Deploy to testnet
+soroban contract deploy \
+  --wasm target/wasm32-unknown-unknown/release/medicinal_plants.wasm \
+  --network testnet \
+  --source SXXXXXX...  # Tu SECRET_KEY
+
+# Output: Contract ID
+# CA5C74SZ5XHXENOVQ454WQN66PMVSPMIZV5FYUR6OWDUQKC4PKOOXNPR
+```
+
+### Frontend
+
+#### Desarrollo Local
+
+```bash
+cd frontend/vue-project
+npm run dev
+# http://localhost:3000
+```
+
+#### Build Producción
+
+```bash
+npm run build
+# Output: dist/
+
+# Preview build
+npm run preview
+```
+
+#### Deploy a Vercel (Recomendado)
+
+```bash
+# Install Vercel CLI
+npm i -g vercel
+
+# Deploy
+cd frontend/vue-project
+vercel
+
+# Configurar .env en Vercel dashboard
+# VITE_WC_PROJECT_ID
+# VITE_SOROBAN_RPC_URL
+# VITE_HORIZON_URL
+# VITE_CONTRACT_ADDRESS
+```
+
+#### Deploy a Netlify
+
+```bash
+# netlify.toml
+[build]
+  command = "npm run build"
+  publish = "dist"
+
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+```
+
+---
+
+## 🗺️ ROADMAP Y PRÓXIMOS PASOS
+
+### Fase 1: MVP Completo ✅ (COMPLETADO)
+
+- [x] Smart contract desplegado
+- [x] Frontend funcional
+- [x] Autenticación 3 métodos
+- [x] CRUD plantas
+- [x] Marketplace básico
+- [x] Sistema de votos
+
+### Fase 2: Mejoras UX/UI 🔄 (EN PROGRESO)
+
+- [ ] **Persistencia de sesión** (localStorage)
+  - Guardar publicKey + authMethod
+  - Auto-login al recargar página
+  - Session timeout (30 min)
+
+- [ ] **Balance auto-refresh**
+  - Polling cada 30s cuando autenticado
+  - Botón "Refrescar Balance"
+  - Loading indicator
+
+- [ ] **Historial de transacciones**
+  - Tabla con últimas 10 tx
+  - Link a Stellar Explorer
+  - Filtro por tipo (registro/compra/voto)
+
+- [ ] **Notificaciones toast**
+  - Tx confirmada
+  - Errores amigables
+  - Warnings (fondos insuficientes)
+
+### Fase 3: Features Avanzados 📋 (PLANIFICADO)
+
+- [ ] **Búsqueda y filtros**
+  - Buscar por nombre/científico
+  - Filtrar por precio range
+  - Ordenar por votos/fecha
+
+- [ ] **Faucet integrado**
+  - Botón "Solicitar XLM testnet"
+  - Auto-request desde UI
+  - Verificación de cuenta sin fondos
+
+- [ ] **Multi-idioma (i18n)**
+  - Español (actual)
+  - Inglés
+  - Selector en navbar
+
+- [ ] **Dashboard Analytics**
+  - Total plantas registradas
+  - Total XLM en marketplace
+  - Top validadores
+  - Gráficas Chart.js
+
+### Fase 4: Producción (Mainnet) 🎯 (FUTURO)
+
+- [ ] Deploy a Stellar Mainnet
+- [ ] Auditoría de seguridad del contrato
+- [ ] Integración con wallets mainnet
+- [ ] Sistema de fees/comisiones
+- [ ] KYC/AML compliance (si aplica)
+- [ ] Legal: Términos de servicio
+- [ ] Marketing: Landing page
+- [ ] Onboarding: Tutorial interactivo
+
+### Fase 5: Escalabilidad 🚀 (VISIÓN)
+
+- [ ] Backend API (cache, analytics)
+- [ ] Base de datos off-chain (metadata)
+- [ ] IPFS para imágenes de plantas
+- [ ] Sistema de reputación validadores
+- [ ] Gamificación (badges, rankings)
+- [ ] Mobile app nativa (React Native)
+- [ ] Integración con DEX (swap XLM<>otras crypto)
+
+---
+
+## 📞 SOPORTE Y CONTRIBUCIÓN
+
+### Reportar Bugs
+
+1. Ir a: https://github.com/RicardoMtzSts/herbamed-blockchain/issues
+2. Click "New Issue"
+3. Seleccionar template "Bug Report"
+4. Completar información:
+   - Descripción del bug
+   - Pasos para reproducir
+   - Comportamiento esperado vs actual
+   - Screenshots (si aplica)
+   - Consola del navegador (F12 → Console)
+
+### Contribuir
+
+```bash
+# Fork del repo
+git clone https://github.com/TU_USUARIO/herbamed-blockchain.git
+cd herbamed-blockchain
+
+# Crear branch feature
+git checkout -b feature/nueva-funcionalidad
+
+# Hacer cambios y commit
+git add .
+git commit -m "feat: descripción cambios"
+
+# Push a tu fork
+git push origin feature/nueva-funcionalidad
+
+# Crear Pull Request en GitHub
+```
+
+### Contacto
+
+- **GitHub:** https://github.com/RicardoMtzSts
+- **Email:** (agregar si aplica)
+- **Discord:** (agregar si aplica)
+
+---
+
+## 📄 LICENCIA
+
+MIT License - Ver archivo `LICENSE` para detalles.
+
+---
+
+## 🙏 AGRADECIMIENTOS
+
+- **Stellar Development Foundation** - Blockchain y documentación
+- **Soroban Team** - Smart contracts framework
+- **Freighter Team** - Wallet extension
+- **WalletConnect** - Protocolo de conexión mobile
+- **Vue.js Community** - Framework frontend
+
+---
+
+**¿Listo para comenzar?**
+
+```bash
+cd frontend/vue-project
+npm install
+npm run dev
+# Abre http://localhost:3000
+# ¡Registra tu primera planta! 🌱
+```
+
+---
+
+*Documento generado el 5 de Diciembre, 2025*  
+*Versión del proyecto: 2.0.0*

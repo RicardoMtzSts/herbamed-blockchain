@@ -1,5 +1,4 @@
 import { SignClient } from '@walletconnect/sign-client'
-import { SessionTypes } from '@walletconnect/types'
 
 let signClient = null
 let activeSessions = {}
