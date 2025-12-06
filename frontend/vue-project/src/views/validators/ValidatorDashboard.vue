@@ -40,51 +40,70 @@
   </div>
 </template>
 
-    <script>
-    import soroban from '../../soroban/client'
+<script>
+import { onMounted, ref, watch } from 'vue'
+import { useRoute } from 'vue-router'
+import soroban from '../../soroban/client'
 
-    export default {
-      name: 'ValidatorDashboard',
-      data() {
-        return {
-          pendingPlants: [],
-          voting: false
-        }
-      },
-      async created() {
-        await this.loadPendingPlants()
-      },
-      methods: {
-        async loadPendingPlants() {
-          try {
-            const all = await soroban.getAllPlants()
-            this.pendingPlants = all.filter(p => !p.validated)
-          } catch (error) {
-            console.error('Error al cargar las plantas pendientes:', error)
-          }
-        },
-        async votePlant(plantId) {
-          try {
-            this.voting = true
-            const validatorAddress = 'validator-mock' // in real app get from wallet
-            const votes = await soroban.voteForPlant(plantId, validatorAddress)
-            const plant = this.pendingPlants.find(p => p.id === plantId)
-            if (plant) {
-              plant.votes = votes
-              plant.hasVoted = true
-            }
-          } catch (error) {
-            console.error('Error al votar por la planta:', error)
-            alert('Error al votar: ' + error.message)
-          } finally {
-            this.voting = false
-          }
-        }
+export default {
+  name: 'ValidatorDashboard',
+  setup() {
+    const route = useRoute()
+    const pendingPlants = ref([])
+    const voting = ref(false)
+    
+    const loadPendingPlants = async () => {
+      try {
+        console.log('[ValidatorDashboard] Cargando plantas pendientes...')
+        const all = await soroban.getAllPlants()
+        pendingPlants.value = all.filter(p => !p.validated)
+        console.log('[ValidatorDashboard] Plantas pendientes cargadas:', pendingPlants.value.length)
+      } catch (error) {
+        console.error('[ValidatorDashboard] Error al cargar plantas pendientes:', error)
       }
     }
-    </script>
-
-    <style scoped>
+    
+    const votePlant = async (plantId) => {
+      try {
+        voting.value = true
+        console.log('[ValidatorDashboard] Votando por planta:', plantId)
+        const validatorAddress = 'validator-mock'
+        const votes = await soroban.voteForPlant(plantId, validatorAddress)
+        const plant = pendingPlants.value.find(p => p.id === plantId)
+        if (plant) {
+          plant.votes = votes
+          plant.hasVoted = true
+        }
+      } catch (error) {
+        console.error('[ValidatorDashboard] Error al votar:', error)
+        alert('Error al votar: ' + error.message)
+      } finally {
+        voting.value = false
+      }
+    }
+    
+    // Montar y cargar datos la primera vez
+    onMounted(async () => {
+      await loadPendingPlants()
+    })
+    
+    // Watchers para refrescar datos cuando regresas a esta ruta
+    watch(() => route.path, async (newPath) => {
+      if (newPath === '/validator') {
+        console.log('[ValidatorDashboard] Ruta /validator detectada - recargando datos')
+        await loadPendingPlants()
+      }
+    })
+    
+    return {
+      pendingPlants,
+      voting,
+      loadPendingPlants,
+      votePlant
+    }
+  }
+}
+</script>    <style scoped>
     .card {
       height: 100%;
     }

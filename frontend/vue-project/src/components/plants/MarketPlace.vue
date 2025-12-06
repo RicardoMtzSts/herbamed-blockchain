@@ -79,11 +79,13 @@
 
 <script>
 import { ref, onMounted, computed, watch } from 'vue'
+import { useRoute } from 'vue-router'
 import { listForSale, buyListing, getListing } from '@/soroban/client'
 
 export default {
   name: 'MarketPlace',
   setup() {
+    const route = useRoute()
     // Usar modo global desde el store
     const { useStore } = require('vuex')
     const store = useStore()
@@ -96,13 +98,15 @@ export default {
     async function loadListings() {
       // Load from localStorage demo data
       try {
+        console.log('[MarketPlace] Cargando listados...')
         const stored = localStorage.getItem('herbamed:listings')
         if (stored) {
           const data = JSON.parse(stored)
           listings.value = Object.values(data)
         }
+        console.log('[MarketPlace] Listados cargados:', listings.value.length)
       } catch (e) {
-        console.error('Error loading listings:', e)
+        console.error('[MarketPlace] Error cargando listados:', e)
       }
     }
 
@@ -115,6 +119,7 @@ export default {
 
       loading.value = true
       try {
+        console.log('[MarketPlace] Listando planta...')
         if (storeMode.value === 'demo') {
           // Demo mode: just save to localStorage
           const stored = JSON.parse(localStorage.getItem('herbamed:listings') || '{}')
@@ -144,6 +149,7 @@ export default {
       status.value = null
       loading.value = true
       try {
+        console.log('[MarketPlace] Comprando planta:', plantId)
         if (storeMode.value === 'demo') {
           // Demo mode: mark as sold in localStorage
           const stored = JSON.parse(localStorage.getItem('herbamed:listings') || '{}')
@@ -172,6 +178,14 @@ export default {
     // Recargar cuando cambia el modo global
     watch(storeMode, () => {
       loadListings()
+    })
+
+    // Recargar cuando regresas a esta ruta
+    watch(() => route.path, async (newPath) => {
+      if (newPath === '/marketplace') {
+        console.log('[MarketPlace] Ruta /marketplace detectada - recargando datos')
+        await loadListings()
+      }
     })
 
     return { storeMode, listForm, listings, loading, status, listPlant, buyPlant }

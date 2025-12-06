@@ -66,7 +66,10 @@
     </nav>
 
     <main class="py-5">
-      <router-view />
+      <!-- Keep-alive para cachear componentes pero con reactividad en activación -->
+      <keep-alive>
+        <router-view />
+      </keep-alive>
     </main>
   </div>
 </template>

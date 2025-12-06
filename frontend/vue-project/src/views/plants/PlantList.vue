@@ -33,32 +33,47 @@
   </div>
 </template>
 
-  <script>
-  import soroban from '../../soroban/client'
+<script>
+import { onMounted, ref, watch } from 'vue'
+import { useRoute } from 'vue-router'
+import soroban from '../../soroban/client'
 
-  export default {
-    name: 'PlantList',
-    data() {
-      return {
-        plants: []
-      }
-    },
-    async created() {
-      await this.loadPlants()
-    },
-    methods: {
-      async loadPlants() {
-        try {
-          this.plants = await soroban.getAllPlants()
-        } catch (error) {
-          console.error('Error al cargar las plantas:', error)
-        }
+export default {
+  name: 'PlantList',
+  setup() {
+    const route = useRoute()
+    const plants = ref([])
+    
+    const loadPlants = async () => {
+      try {
+        console.log('[PlantList] Cargando plantas...')
+        plants.value = await soroban.getAllPlants()
+        console.log('[PlantList] Plantas cargadas:', plants.value.length)
+      } catch (error) {
+        console.error('[PlantList] Error al cargar plantas:', error)
       }
     }
+    
+    // Montar y cargar datos la primera vez
+    onMounted(async () => {
+      await loadPlants()
+    })
+    
+    // Watchers para refrescar datos cuando regresas a esta ruta
+    watch(() => route.path, async (newPath) => {
+      if (newPath === '/plants') {
+        console.log('[PlantList] Ruta /plants detectada - recargando datos')
+        await loadPlants()
+      }
+    })
+    
+    return {
+      plants,
+      loadPlants
+    }
   }
-  </script>
-
-  <style scoped>
+}
+</script>  <style scoped>
   .card {
     height: 100%;
   }

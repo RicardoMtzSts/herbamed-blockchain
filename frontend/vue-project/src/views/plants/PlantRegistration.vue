@@ -55,51 +55,76 @@
   </div>
 </template>
 
-          <script>
-          import soroban from '../../soroban/client'
+<script>
+import { ref, watch } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
+import soroban from '../../soroban/client'
 
-          export default {
-            name: 'PlantRegistration',
-            data() {
-              return {
-                plant: {
-                  id: '',
-                  name: '',
-                  scientificName: '',
-                  properties: ['']
-                },
-                loading: false
-              }
-            },
-            methods: {
-              addProperty() {
-                this.plant.properties.push('')
-              },
-              removeProperty(index) {
-                this.plant.properties.splice(index, 1)
-              },
-              async registerPlant() {
-                try {
-                  this.loading = true
-                  await soroban.registerPlant({
-                    id: this.plant.id,
-                    name: this.plant.name,
-                    scientificName: this.plant.scientificName,
-                    properties: this.plant.properties
-                  })
-                  this.$router.push('/plants')
-                } catch (error) {
-                  console.error('Error al registrar la planta:', error)
-                  alert('Error al registrar la planta: ' + error.message)
-                } finally {
-                  this.loading = false
-                }
-              }
-            }
-          }
-          </script>
-
-          <style scoped>
+export default {
+  name: 'PlantRegistration',
+  setup() {
+    const router = useRouter()
+    const route = useRoute()
+    
+    const plant = ref({
+      id: '',
+      name: '',
+      scientificName: '',
+      properties: ['']
+    })
+    const loading = ref(false)
+    
+    const addProperty = () => {
+      plant.value.properties.push('')
+    }
+    
+    const removeProperty = (index) => {
+      plant.value.properties.splice(index, 1)
+    }
+    
+    const registerPlant = async () => {
+      try {
+        loading.value = true
+        console.log('[PlantRegistration] Registrando planta...')
+        await soroban.registerPlant({
+          id: plant.value.id,
+          name: plant.value.name,
+          scientificName: plant.value.scientificName,
+          properties: plant.value.properties
+        })
+        console.log('[PlantRegistration] Planta registrada - navegando a /plants')
+        router.push('/plants')
+      } catch (error) {
+        console.error('[PlantRegistration] Error al registrar planta:', error)
+        alert('Error al registrar la planta: ' + error.message)
+      } finally {
+        loading.value = false
+      }
+    }
+    
+    // Limpiar formulario cuando regresas a esta ruta
+    watch(() => route.path, (newPath) => {
+      if (newPath === '/plants/register') {
+        console.log('[PlantRegistration] Ruta /plants/register detectada - limpiando formulario')
+        plant.value = {
+          id: '',
+          name: '',
+          scientificName: '',
+          properties: ['']
+        }
+      }
+    })
+    
+    return {
+      plant,
+      loading,
+      addProperty,
+      removeProperty,
+      registerPlant
+    }
+  }
+}
+</script>          <style scoped>
           .container {
             max-width: 800px;
           }
