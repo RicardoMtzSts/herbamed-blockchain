@@ -822,29 +822,166 @@ ngrok http 3000
 
 ### Smart Contract
 
+#### 🔑 Keypairs del Proyecto
+
+**Deployer Account (Admin):**
+```
+Public Key:  GADZC7QBB4TWRFECMKN6O7YUC5THLYCTPIYBPZH2MXRJKYDPIICESF23
+Secret Key:  SC6F34PG32JOVH6KUIMOW4GDX33OGRJP6WNRQMRYROJJ57GZ5YIZXEAK
+```
+
+**⚠️ Rol de estos Keypairs:**
+- **Deployment**: Usados para desplegar el contrato en testnet
+- **Autorización**: Tienen permisos de administrador sobre el contrato
+- **Fees**: Pagan los costos de transacciones (fondeados con 10,000 XLM testnet)
+- **Signing**: Firman transacciones administrativas
+- **⚠️ SEGURIDAD**: Mantener el Secret Key privado y seguro (nunca compartir en producción)
+
+**Contract Deployed:**
+```
+Contract ID: CA5C74SZ5XHXENOVQ454WQN66PMVSPMIZV5FYUR6OWDUQKC4PKOOXNPR
+Network:     Stellar Testnet
+Status:      ✅ Activo
+Explorer:    https://stellar.expert/explorer/testnet/contract/CA5C74SZ5XHXENOVQ454WQN66PMVSPMIZV5FYUR6OWDUQKC4PKOOXNPR
+```
+
+#### 📝 Proceso Completo de Creación de Contrato
+
+**PASO 1: Escribir Código Rust**
+
+```rust
+// contracts/medicinal-plants/src/lib.rs
+#![no_std]
+use soroban_sdk::{contract, contractimpl, Env, String, Address};
+
+#[contract]
+pub struct MedicinalPlantsContract;
+
+#[contractimpl]
+impl MedicinalPlantsContract {
+    pub fn register_plant(env: &Env, id: String, name: String) -> String {
+        // Lógica del contrato
+        env.storage().instance().set(&DataKey::Plant(id.clone()), &plant);
+        id
+    }
+}
+```
+
+**PASO 2: Compilar a WebAssembly**
+
 ```bash
-# Build contract
+# Navegar al directorio del contrato
 cd contracts/medicinal-plants
+
+# Build (compila a WASM optimizado)
 soroban contract build
 
-# Deploy to testnet
+# Internamente ejecuta:
+# cargo build --target wasm32-unknown-unknown --release
+
+# Output generado:
+# ✅ target/wasm32-unknown-unknown/release/medicinal_plants.wasm (~50-100 KB)
+```
+
+**PASO 3: Generar Keypair de Deployment**
+
+```bash
+# Generar nueva identity
+soroban keys generate deployer --network testnet
+
+# Ver public key generada
+soroban keys address deployer
+# Output: GADZC7QBB4TWRFECMKN6O7YUC5THLYCTPIYBPZH2MXRJKYDPIICESF23
+
+# Fondear cuenta con Friendbot (solo testnet)
+curl "https://friendbot.stellar.org?addr=$(soroban keys address deployer)"
+# ✅ Cuenta fondeada con 10,000 XLM testnet
+```
+
+**PASO 4: Deploy a Testnet**
+
+```bash
+# Deploy el contrato compilado
 soroban contract deploy \
   --wasm target/wasm32-unknown-unknown/release/medicinal_plants.wasm \
-  --network testnet \
-  --source SXXXXXX...  # Tu SECRET_KEY
+  --source deployer \
+  --network testnet
 
-# Output: Contract ID
-# CA5C74SZ5XHXENOVQ454WQN66PMVSPMIZV5FYUR6OWDUQKC4PKOOXNPR
+# ✅ Output: CA5C74SZ5XHXENOVQ454WQN66PMVSPMIZV5FYUR6OWDUQKC4PKOOXNPR
+#            ↑ Tu nuevo CONTRACT_ID
+```
+
+**🔐 Qué sucede internamente:**
+
+1. **Build Transaction**: stellar-cli crea transacción con:
+   - `HostFunction::UploadContractWasm` (sube .wasm a ledger)
+   - `HostFunction::CreateContract` (instancia contrato)
+
+2. **Firma**: Usa secret key de `deployer` para firmar tx
+
+3. **Submit**: Envía a `https://soroban-testnet.stellar.org`
+
+4. **Blockchain procesa**:
+   - ✅ Valida firma del deployer
+   - 💰 Cobra fee (~100 stroops)
+   - 📦 Almacena WASM en ledger
+   - 🆔 Genera Contract ID único (CA5C...)
+
+5. **Retorna**: Contract Address para usar en frontend
+
+**PASO 5: Verificar Deployment**
+
+```bash
+# Ver contrato en explorer
+https://stellar.expert/explorer/testnet/contract/CA5C74SZ5XHXENOVQ454WQN66PMVSPMIZV5FYUR6OWDUQKC4PKOOXNPR
+
+# Ver transacciones del deployer
+https://stellar.expert/explorer/testnet/account/GADZC7QBB4TWRFECMKN6O7YUC5THLYCTPIYBPZH2MXRJKYDPIICESF23
+
+# Invocar función del contrato (test)
+soroban contract invoke \
+  --id CA5C74SZ5XHXENOVQ454WQN66PMVSPMIZV5FYUR6OWDUQKC4PKOOXNPR \
+  --source deployer \
+  --network testnet \
+  -- \
+  register_plant \
+  --id "plant001" \
+  --name "Aloe Vera"
 ```
 
 ### Frontend
+
+#### 🔧 Configuración de Environment Variables
+
+```bash
+# frontend/vue-project/.env
+VITE_CONTRACT_ADDRESS=CA5C74SZ5XHXENOVQ454WQN66PMVSPMIZV5FYUR6OWDUQKC4PKOOXNPR
+VITE_SOROBAN_RPC_URL=https://soroban-testnet.stellar.org
+VITE_SOROBAN_NETWORK=testnet
+VITE_HORIZON_URL=https://horizon-testnet.stellar.org
+VITE_WC_PROJECT_ID=4d6e4ea28e2c05227eeec7733dfd78ff
+
+# ⚠️ Solo para desarrollo/testing local (nunca en producción)
+# VITE_SECRET_KEY=SC6F34PG32JOVH6KUIMOW4GDX33OGRJP6WNRQMRYROJJ57GZ5YIZXEAK
+```
+
+**📋 Descripción de Variables:**
+
+| Variable | Descripción | Ejemplo |
+|----------|-------------|---------|
+| `VITE_CONTRACT_ADDRESS` | ID del contrato desplegado | `CA5C74SZ...` |
+| `VITE_SOROBAN_RPC_URL` | Endpoint Soroban RPC | `https://soroban-testnet.stellar.org` |
+| `VITE_SOROBAN_NETWORK` | Red Stellar (testnet/mainnet) | `testnet` |
+| `VITE_HORIZON_URL` | API Horizon para balances | `https://horizon-testnet.stellar.org` |
+| `VITE_WC_PROJECT_ID` | WalletConnect Project ID | `4d6e4ea...` (obtener en walletconnect.com) |
 
 #### Desarrollo Local
 
 ```bash
 cd frontend/vue-project
+npm install
 npm run dev
-# http://localhost:3000
+# ✅ http://localhost:3000
 ```
 
 #### Build Producción
@@ -867,17 +1004,19 @@ npm i -g vercel
 cd frontend/vue-project
 vercel
 
-# Configurar .env en Vercel dashboard
-# VITE_WC_PROJECT_ID
-# VITE_SOROBAN_RPC_URL
-# VITE_HORIZON_URL
-# VITE_CONTRACT_ADDRESS
+# ⚙️ Configurar Environment Variables en Vercel Dashboard:
+# Settings → Environment Variables → Add New
+# - VITE_CONTRACT_ADDRESS
+# - VITE_SOROBAN_RPC_URL
+# - VITE_SOROBAN_NETWORK
+# - VITE_HORIZON_URL
+# - VITE_WC_PROJECT_ID
 ```
 
 #### Deploy a Netlify
 
 ```bash
-# netlify.toml
+# netlify.toml (ya incluido en el proyecto)
 [build]
   command = "npm run build"
   publish = "dist"
@@ -886,6 +1025,46 @@ vercel
   from = "/*"
   to = "/index.html"
   status = 200
+
+# Deploy
+netlify deploy --prod
+
+# ⚙️ Configurar variables en Netlify:
+# Site settings → Environment variables
+```
+
+---
+
+## 🔄 FLUJO COMPLETO: CONTRATO → FRONTEND → USUARIO
+
+```
+1. Código Rust (lib.rs)
+        ↓ cargo build
+2. WASM Binary (medicinal_plants.wasm)
+        ↓ soroban deploy --source deployer
+3. [Keypair GADZ... firma transacción]
+        ↓
+4. Stellar Network procesa y almacena
+        ↓
+5. ✅ Contract ID: CA5C74SZ...
+        ↓
+6. Frontend config.js conecta con CONTRACT_ID
+        ↓
+7. Usuario autenticado invoca función
+        ↓
+8. client.js construye transacción
+        ↓
+9. Freighter/Local/WC firma transacción
+        ↓
+10. Submit a Soroban RPC
+        ↓
+11. Blockchain ejecuta función del contrato
+        ↓
+12. ✅ Resultado guardado en ledger
+        ↓
+13. Frontend recibe confirmación
+        ↓
+14. UI actualiza estado
 ```
 
 ---
