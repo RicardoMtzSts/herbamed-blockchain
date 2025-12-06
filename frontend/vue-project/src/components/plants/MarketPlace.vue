@@ -80,14 +80,13 @@
 <script>
 import { ref, onMounted, computed, watch } from 'vue'
 import { useRoute } from 'vue-router'
+import { useStore } from 'vuex'
 import { listForSale, buyListing, getListing } from '@/soroban/client'
 
 export default {
   name: 'MarketPlace',
   setup() {
     const route = useRoute()
-    // Usar modo global desde el store
-    const { useStore } = require('vuex')
     const store = useStore()
     const storeMode = computed(() => store.state.mode || 'demo')
     const listForm = ref({ plantId: '', price: '' })
@@ -102,11 +101,14 @@ export default {
         const stored = localStorage.getItem('herbamed:listings')
         if (stored) {
           const data = JSON.parse(stored)
-          listings.value = Object.values(data)
+          listings.value = Array.isArray(data) ? data : Object.values(data || {})
+        } else {
+          listings.value = []
         }
         console.log('[MarketPlace] Listados cargados:', listings.value.length)
       } catch (e) {
         console.error('[MarketPlace] Error cargando listados:', e)
+        listings.value = []
       }
     }
 

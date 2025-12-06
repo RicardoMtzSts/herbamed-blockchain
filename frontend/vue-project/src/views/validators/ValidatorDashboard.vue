@@ -56,10 +56,13 @@ export default {
       try {
         console.log('[ValidatorDashboard] Cargando plantas pendientes...')
         const all = await soroban.getAllPlants()
-        pendingPlants.value = all.filter(p => !p.validated)
+        // Asegurar que siempre sea un array
+        const plants_array = Array.isArray(all) ? all : []
+        pendingPlants.value = plants_array.filter(p => !p.validated)
         console.log('[ValidatorDashboard] Plantas pendientes cargadas:', pendingPlants.value.length)
       } catch (error) {
         console.error('[ValidatorDashboard] Error al cargar plantas pendientes:', error)
+        pendingPlants.value = []
       }
     }
     

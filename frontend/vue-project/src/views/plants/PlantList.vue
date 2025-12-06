@@ -47,10 +47,13 @@ export default {
     const loadPlants = async () => {
       try {
         console.log('[PlantList] Cargando plantas...')
-        plants.value = await soroban.getAllPlants()
+        const result = await soroban.getAllPlants()
+        // Asegurar que siempre sea un array
+        plants.value = Array.isArray(result) ? result : []
         console.log('[PlantList] Plantas cargadas:', plants.value.length)
       } catch (error) {
         console.error('[PlantList] Error al cargar plantas:', error)
+        plants.value = []
       }
     }
     
