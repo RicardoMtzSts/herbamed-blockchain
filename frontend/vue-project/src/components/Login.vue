@@ -139,12 +139,19 @@
             </div>
             
             <!-- QR Code -->
-            <div class="mt-4 text-center">
-              <p class="small text-muted mb-2">Escanea el QR para guardar en móvil:</p>
-              <div v-if="generatingAccountQR" class="spinner-border spinner-border-sm text-info" role="status">
-                <span class="visually-hidden">Generando QR...</span>
+            <div class="mt-4">
+              <div class="text-center mb-2">
+                <button class="btn btn-outline-info btn-sm" @click="accountQRVisible = !accountQRVisible">
+                  {{ accountQRVisible ? '🔻 Ocultar QR' : '📱 Mostrar QR' }}
+                </button>
               </div>
-              <canvas v-else id="accountSecretQR" style="max-width: 260px; border: 2px solid #ddd; padding: 10px; background: white; border-radius: 8px; display: block; margin: 0 auto;"></canvas>
+              <div v-show="accountQRVisible" class="text-center">
+                <p class="small text-muted mb-3"><strong>Escanea el QR para guardar en móvil:</strong></p>
+                <div v-show="generatingAccountQR" class="spinner-border spinner-border-sm text-info mb-3" role="status">
+                  <span class="visually-hidden">Generando QR...</span>
+                </div>
+                <canvas v-show="!generatingAccountQR" id="accountSecretQR" style="max-width: 280px; width: 100%; height: auto; border: 3px solid #28a745; padding: 12px; background: white; border-radius: 8px; display: block; margin: 0 auto;"></canvas>
+              </div>
             </div>
           </div>
         </div>
@@ -233,6 +240,7 @@ export default {
     const copiedPublic = ref(false)
     const copiedSecret = ref(false)
     const generatingAccountQR = ref(false)
+    const accountQRVisible = ref(false)
 
     const isAuthenticated = computed(() => store.state.isAuthenticated)
     const publicKey = computed(() => store.state.publicKey)
@@ -355,11 +363,18 @@ export default {
       
       generatingAccountQR.value = true
       try {
+        // Esperar a que el DOM se actualice completamente
         await nextTick()
+        await new Promise(resolve => setTimeout(resolve, 100))
+        
         const canvas = document.getElementById('accountSecretQR')
         if (!canvas) {
-          throw new Error('Canvas element no encontrado')
+          throw new Error('Canvas element no encontrado en el DOM')
         }
+        
+        // Limpiar canvas antes de renderizar
+        const ctx = canvas.getContext('2d')
+        if (ctx) ctx.clearRect(0, 0, canvas.width, canvas.height)
         
         await QRCode.toCanvas(canvas, newAccount.value.secret, {
           width: 280,
@@ -369,7 +384,7 @@ export default {
             light: '#FFFFFF'
           }
         })
-        console.log('✅ QR de secret generado')
+        console.log('✅ QR de secret generado correctamente')
       } catch (e) {
         console.error('Error generando QR:', e)
         status.value = { type: 'error', message: 'Error generando QR: ' + e.message }
@@ -417,6 +432,7 @@ export default {
         localStorage.setItem('herbamed:account', JSON.stringify(payload))
         setLocalSecret(kp.secret())
         newAccount.value = { secret: kp.secret(), publicKey: kp.publicKey() }
+        accountQRVisible.value = false // Ocultar QR inicialmente
         await setSessionAsActive(kp.publicKey(), 'local-key')
         
         // Renderizar QR después de crear la cuenta
@@ -439,6 +455,7 @@ export default {
         await fundAccountWithFriendbot(kp.publicKey())
         
         newAccount.value = { secret: kp.secret(), publicKey: kp.publicKey() }
+        accountQRVisible.value = false // Ocultar QR inicialmente
         
         // Renderizar QR
         await renderSecretQR()
@@ -586,6 +603,7 @@ export default {
       fundingImport,
       copiedPublic,
       copiedSecret,
+      accountQRVisible,
       isAuthenticated,
       publicKey,
       balance,
